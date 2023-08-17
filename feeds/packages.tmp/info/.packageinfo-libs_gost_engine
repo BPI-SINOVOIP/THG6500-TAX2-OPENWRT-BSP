@@ -1,0 +1,48 @@
+Source-Makefile: feeds/packages/libs/gost_engine/Makefile
+
+Package: libopenssl-gost_engine
+Submenu: SSL
+Version: 1.1.0.3-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread libopenssl @OPENSSL_ENGINE +libopenssl-conf
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: GOST engine for OpenSSL (library)
+Maintainer: Artur Petrov <github@phpchain.ru>
+Source: gost_engine-1.1.0.3.tar.gz
+License: OpenSSL
+Type: ipkg
+Description: Russian GOST crypto algorithms for OpenSSL.
+This package contains the GOST engine library.
+
+Support ciphers:
+GOST2012-GOST8912-GOST8912
+GOST2001-GOST89-GOST89
+https://github.com/gost-engine/engine/
+Artur Petrov <github@phpchain.ru>
+@@
+
+Package: gost_engine-util
+Version: 1.1.0.3-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread libopenssl-gost_engine
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: utils
+Category: Utilities
+Repository: base
+Title: GOST engine for OpenSSL (utilities)
+Maintainer: Artur Petrov <github@phpchain.ru>
+Source: gost_engine-1.1.0.3.tar.gz
+License: OpenSSL
+Type: ipkg
+Description: Russian GOST crypto algorithms for OpenSSL.
+This package contains the GOST engine command-line utilities gostsum and gost12sum.
+http://www.openssl.org/
+Artur Petrov <github@phpchain.ru>
+@@
+
+

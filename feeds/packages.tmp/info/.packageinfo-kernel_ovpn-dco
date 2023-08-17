@@ -1,0 +1,22 @@
+Source-Makefile: feeds/packages/kernel/ovpn-dco/Makefile
+
+Package: kmod-ovpn-dco
+Submenu: Network Support
+Version: <LINUX_VERSION>+2021-10-05-1017d4ada58a4c73f44ef671b6469ae168b6c6b0-0
+Depends: +kmod-crypto-aead +kmod-udptunnel4 +kmod-udptunnel6
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: kernel
+Category: Kernel modules
+Title: OpenVPN data channel offload
+Maintainer: Jianhui Zhao <zhaojh329@gmail.com>
+Source: ovpn-dco-2021-10-05-1017d4ada58a4c73f44ef671b6469ae168b6c6b0.tar.xz
+License: GPL-2.0-only
+Type: ipkg
+Description:   This module enhances the performance of the OpenVPN userspace software
+  by offloading the data channel processing to kernelspace.
+Jianhui Zhao <zhaojh329@gmail.com>
+@@
+
+

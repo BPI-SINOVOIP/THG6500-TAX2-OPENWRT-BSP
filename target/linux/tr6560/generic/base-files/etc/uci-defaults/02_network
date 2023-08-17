@@ -1,0 +1,34 @@
+[ -e '/etc/config/network' ] || exit 0
+
+. /lib/functions/system.sh
+
+
+switch_to_bridge_mode()
+{
+    uci batch << 'EOF'
+        set network.agent='interface'
+        set network.agent.proto='dhcp'
+        set network.agent.device='br-lan'
+        set network.wan.disabled=1
+        set network.wan6.disabled=1
+        add_list network.@device[0].ports=wan
+        set dhcp.lan.ignore='1'
+EOF
+}
+
+
+
+
+
+set_device_config()
+{
+    device=$(board_name)
+
+    case $device in
+        *)
+            [ -e '/etc/config/prplmesh' ] && `switch_to_bridge_mode`
+            ;;
+    esac
+}
+
+set_device_config # 根据device设置个性参数

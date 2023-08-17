@@ -1,0 +1,79 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements.Network.Device.Radio.BSS {
+
+        /* macaddress */
+        %read-only string BSSID = "0";
+        %read-only string SSID = "0";
+        bool Enabled = false;
+        %read-only bool IsVBSS = false;
+        %read-only uint32 LastChange = 0 {
+            on action read call action_read_last_change;
+        }
+
+        %read-only string TimeStamp = "2020-08-31T11:22:39Z";
+        %read-only uint64 UnicastBytesSent = 0;
+        %read-only uint64 UnicastBytesReceived = 0;
+        %read-only uint64 MulticastBytesSent = 0;
+        %read-only uint64 MulticastBytesReceived = 0;
+        %read-only uint64 BroadcastBytesSent = 0;
+        %read-only uint64 BroadcastBytesReceived = 0;
+
+        %read-only uint32 EstServiceParametersBE = 0 {
+            on action validate call check_range [0, 16777215];
+        }
+
+        %read-only uint32 EstServiceParametersBK = 0 {
+            on action validate call check_range [0, 16777215];
+        }
+
+        %read-only uint32 EstServiceParametersVI = 0 {
+            on action validate call check_range [0, 16777215];
+        }
+
+        %read-only uint32 EstServiceParametersVO = 0 {
+            on action validate call check_range [0, 16777215];
+        }
+
+        %read-only uint32 ByteCounterUnits = 0x0;
+
+        bool FronthaulUse = false;
+        bool BackhaulUse = false;
+
+        %instance bool TriggerVBSSDestruction(
+            %in %mandatory string client_mac,
+            %in bool should_disassociate = true
+        );
+
+        %instance bool TriggerVBSSMove(
+            %in %mandatory string client_mac,
+            %in %mandatory string dest_ruid,
+            %in %mandatory string ssid,
+            %in %mandatory string pass
+        );
+
+        object STA [] {
+            counted with STANumberOfEntries;
+        }
+
+        %read-only object MultiAPSteering {
+           %read-only uint64 BlacklistAttempts = 0;
+           %read-only uint64 BTMAttempts = 0;
+           %read-only uint64 BTMQueryResponses = 0;
+        }
+    }
+}

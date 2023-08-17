@@ -1,0 +1,22 @@
+[ ! -e /etc/config/wireless ] && exit 0
+
+. /lib/functions/system.sh
+
+
+
+set_device_config()
+{
+    device=$(board_name)
+
+    case $device in
+        *)
+            ;;
+    esac
+}
+
+
+
+set_device_config
+
+
+exit 0

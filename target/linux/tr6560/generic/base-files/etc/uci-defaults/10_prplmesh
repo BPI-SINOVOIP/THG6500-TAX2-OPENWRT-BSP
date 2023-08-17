@@ -1,0 +1,99 @@
+[ ! -e /etc/config/system ] && exit 0
+
+. /lib/functions/system.sh
+
+
+set_device_mesh()
+{
+    case $device in
+        *)
+            ;;
+    esac
+}
+
+set_devcie_wireless()
+{
+    # device dependent config
+    case $device in
+        *)
+            for index in 0 1;
+            do
+                passwd=`uci -q get wireless.default_radio${index}.key`
+                if [ -z "$passwd" ]; then
+                    uci set wireless.default_radio$index.key='12345678'
+                fi
+            done
+
+            uci batch <<EOF
+                set wireless.default_radio0.encryption='psk2'
+                set wireless.default_radio0.multi_ap='2'
+                set wireless.default_radio1.encryption='psk2'
+                set wireless.default_radio1.multi_ap='2'
+                set wireless.default_radio1.wps_pushbutton='1'
+
+                set wireless.wlan1_ap_bh=wifi-iface
+                set wireless.wlan1_ap_bh.device='radio1'
+                set wireless.wlan1_ap_bh.network='lan'
+                set wireless.wlan1_ap_bh.mode='ap'
+                set wireless.wlan1_ap_bh.key='12345678'
+                set wireless.wlan1_ap_bh.encryption='psk2'
+                set wireless.wlan1_ap_bh.ssid='Triductor_Mesh_BH'
+                set wireless.wlan1_ap_bh.wds='1'
+                set wireless.wlan1_ap_bh.multi_ap='1'
+                set wireless.wlan1_ap_bh.ifname='wlan1-ap-bh'
+EOF
+            ;;
+    esac
+
+
+    # device independent config
+    uci batch <<EOF
+        set wireless.wlan0_ap_bh=wifi-iface
+        set wireless.wlan0_ap_bh.device='radio0'
+        set wireless.wlan0_ap_bh.network='lan'
+        set wireless.wlan0_ap_bh.mode='ap'
+        set wireless.wlan0_ap_bh.key='12345678'
+        set wireless.wlan0_ap_bh.encryption='psk2'
+        set wireless.wlan0_ap_bh.ssid='Triductor_Mesh_BH'
+        set wireless.wlan0_ap_bh.multi_ap='1'
+        set wireless.wlan0_ap_bh.wds='1'
+        set wireless.wlan0_ap_bh.ifname='wlan0-ap-bh'
+
+        set wireless.wlan0_sta_bh=wifi-iface
+        set wireless.wlan0_sta_bh.device='radio0'
+        set wireless.wlan0_sta_bh.mode='sta'
+        set wireless.wlan0_sta_bh.wds='1'
+        set wireless.wlan0_sta_bh.network='lan'
+        set wireless.wlan0_sta_bh.multi_ap='1'
+        set wireless.wlan0_sta_bh.default_disabled='1'
+        set wireless.wlan0_sta_bh.ifname='wlan0-sta-bh'
+
+        set wireless.wlan1_sta_bh=wifi-iface
+        set wireless.wlan1_sta_bh.device='radio1'
+        set wireless.wlan1_sta_bh.mode='sta'
+        set wireless.wlan1_sta_bh.wds='1'
+        set wireless.wlan1_sta_bh.network='lan'
+        set wireless.wlan1_sta_bh.multi_ap='1'
+        set wireless.wlan1_sta_bh.default_disabled='1'
+        set wireless.wlan1_sta_bh.ifname='wlan1-sta-bh'
+EOF
+}
+
+set_device_config()
+{
+    device=$(board_name)
+
+    # generate mesh related config
+    `set_device_mesh $device`
+
+    # generate wireless related config according to the mesh config
+    enable=`uci -q get prplmesh.config.enable`
+    if [ -n "${enable}" -a "$enable" = "1" ]; then
+        `set_devcie_wireless $device`
+    fi
+}
+
+
+set_device_config
+
+exit 0

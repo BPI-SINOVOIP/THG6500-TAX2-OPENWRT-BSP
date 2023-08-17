@@ -1,0 +1,36 @@
+diff -Naru a/fs/ubifs/budget.c b/fs/ubifs/budget.c
+--- a/fs/ubifs/budget.c	2023-04-17 16:59:54.724054983 +0800
++++ b/fs/ubifs/budget.c	2023-04-17 17:04:40.004351925 +0800
+@@ -22,6 +22,8 @@
+ #include <linux/writeback.h>
+ #include <linux/math64.h>
+ 
++#include <asm/ptrace.h>
++
+ /*
+  * When pessimistic budget calculations say that there is no enough space,
+  * UBIFS starts writing back dirty inodes and pages, doing garbage collection,
+@@ -385,6 +387,11 @@
+ 	if (req->new_dent)
+ 		data_growth += c->bi.dent_budget;
+ 	data_growth += req->new_ino_d;
++	if (data_growth > 0x800000){/*计算 data growth 如果大于8M，认为是非法申请，dump调用栈信息供排查*/
++		ubifs_dump_budget_req(req);
++		pr_err("calc data_growth %d\r\n\r\n", data_growth);
++		dump_stack();
++	}
+ 	return data_growth;
+ }
+ 
+@@ -406,6 +413,11 @@
+ 	if (req->mod_dent)
+ 		dd_growth += c->bi.dent_budget;
+ 	dd_growth += req->dirtied_ino_d;
++	if (dd_growth > 0x800000){/*计算 dirty growth 如果大于8M，认为是非法申请，dump调用栈信息供排查*/
++		ubifs_dump_budget_req(req);
++		pr_err("calc dd_growth %d\r\n\r\n", dd_growth);
++		dump_stack();
++	}
+ 	return dd_growth;
+ }
+ 

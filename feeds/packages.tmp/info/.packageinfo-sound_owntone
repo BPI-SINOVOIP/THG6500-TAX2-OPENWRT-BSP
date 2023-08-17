@@ -1,0 +1,27 @@
+Source-Makefile: feeds/packages/sound/owntone/Makefile
+Build-Depends: !BUILD_NLS:libiconv
+
+Package: owntone
+Version: 28.2-2
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libgpg-error +libgcrypt +libgdbm +zlib +libexpat +libunistring +libevent2 +libdaemon +libantlr3c +confuse +alsa-lib +libffmpeg-full +mxml +libavahi-client +sqlite3-cli +libplist +libcurl +libjson-c +libprotobuf-c +libgnutls +libsodium +libwebsockets +libuuid +BUILD_NLS:libiconv-full
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: sound
+Category: Sound
+Repository: base
+Title: iTunes (DAAP) server for Apple Remote and AirPlay
+Maintainer: Espen Jürgensen <espenjurgensen+openwrt@gmail.com>
+Source: owntone-28.2.tar.xz
+License: GPL-2.0
+LicenseFiles: COPYING
+Type: ipkg
+Description:   OwnTone is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
+  RSP (Roku) media server. It has support for AirPlay speakers, Chromecast,
+  Apple Remote (and compatibles), MPD clients, internet radio and LastFM. It
+  does not support AirPlay/Chromecast video.
+https://github.com/owntone/owntone-server
+Espen Jürgensen <espenjurgensen+openwrt@gmail.com>
+@@
+
+

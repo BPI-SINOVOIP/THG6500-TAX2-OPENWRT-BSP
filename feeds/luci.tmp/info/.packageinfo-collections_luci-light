@@ -1,0 +1,23 @@
+Source-Makefile: feeds/luci/collections/luci-light/Makefile
+Build-Depends: lua/host luci-base/host LUCI_CSSTIDY:csstidy/host LUCI_SRCDIET:luasrcdiet/host 
+
+Package: luci-light
+Submenu: 1. Collections
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +uhttpd +luci-mod-admin-mini +luci-theme-openwrt @BROKEN
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: Minimum package set using only admin mini and the standard theme
+Maintainer: OpenWrt LuCI community
+Source: 
+Type: ipkg
+Description: Minimum package set using only admin mini and the standard theme
+https://github.com/openwrt/luci
+OpenWrt LuCI community
+@@
+
+

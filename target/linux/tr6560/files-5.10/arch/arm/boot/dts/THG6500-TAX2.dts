@@ -1,0 +1,128 @@
+/*
+ * dts file for TRIDUCTOR Ltd. tr6560  Board
+ *
+ * Copyright (C) 2021-07-29, TRIDUCTOR Ltd.
+ *
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "triductor-tr6560.dtsi" 
+
+/ {
+	model = "THG6500-TAX2";
+	compatible = "THG6500-TAX2", "triductor,tr6560";
+
+	leds {
+		compatible = "gpio-leds";
+		wlan_sharegpio = <1>;
+
+		wlan2g {
+			label = "tri:green:wlan2g";
+			gpios = <&gpio0 24 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		wlan5g {
+			label = "tri:green:wlan5g";
+			gpios = <&gpio0 31 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		wps {
+			label = "tri:green:wps";
+			gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		power-red {
+			label = "tri:red:power";
+			gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		power-green {
+			label = "tri:green:power";
+			gpios = <&gpio0 1 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	keys {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+		
+		reset {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&gpio0 28 GPIO_ACTIVE_LOW>;
+		};
+
+		wps {
+			label = "wps";
+			linux,code = <KEY_WPS_BUTTON>;
+			gpios = <&gpio0 18 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	// 此节点标识单板gpio特性
+	board{
+		compatible = "tri,board";
+		usb_power = <27>; // usb 电源控制vbus管脚
+		current_limit = <28>; //gpio限流保护引脚，目前无芯片使用
+		
+		tr5220;
+		pcie2_0;
+		pcie_rstn    = <16>;  //初始配置拉高；低电平复位
+		vol_en       = <9>;  //高电平有效，高电平给wifi上电
+		wl_en        = <10>; //高电平有效，打开高电平wifi
+		pmu_pwron    = <11>; //初始配置拉高，低电平WIFI芯片关电
+
+		rgmii;               // rgmii模块属性，涉及GPIO复用配置，不使用请屏蔽
+		extphy;              // 带rgmii时的外置phy属性，涉及GPIO复用配置，不使用请屏蔽
+		jtag_sel;            //wifi芯片操作gpio管脚和jtag复用，jtag优先级更高
+	};
+};
+
+&halport0 {
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			label = "wan";
+			phy-mode = "internal";
+			phy-handle = <&phy1>;
+		};
+		port@1 {
+			reg = <1>;
+			label = "lan1";
+			phy-mode = "internal";
+			phy-handle = <&phy2>;
+		};
+		port@2 {
+			reg = <2>;
+			label = "lan2";
+			phy-mode = "internal";
+			phy-handle = <&phy3>;
+		};
+		port@3 {
+			reg = <3>;
+			label = "lan3";
+			phy-mode = "internal";
+			phy-handle = <&phy4>;
+		};
+		port@4 {
+			reg = <4>;
+			label = "lan4";
+			phy-mode = "internal";
+			phy-handle = <&phy5>;
+		};
+	};
+
+};
+

@@ -1,0 +1,23 @@
+diff '--exclude=*.m4' '--exclude=Makefile.in' -aur old/system-linux.c new/system-linux.c
+--- old/system-linux.c	2023-05-12 14:17:37.074136837 +0800
++++ new/system-linux.c	2023-05-12 13:55:59.000816881 +0800
+@@ -1557,12 +1557,17 @@
+ 		return -EPROTONOSUPPORT;
+ 	}
+ 
++	/* 创建接口 */
+ 	snprintf(cmd, sizeof(cmd), "cs_cli /home/cli/api/intf/add -v fatherifname %s ifname %s mapmode 4 vid %d",
+ 		dev->ifname, vlandev->ifname, cfg->vid);
+-	netifd_log_message(L_NOTICE, "cmd=%s", cmd);
++	netifd_log_message(L_NOTICE, "[%s(%d)] cmd=%s", __func__, __LINE__, cmd);
+ 	system(cmd);
+ 
+-
++	/* 配置VLAN子接口的MAC为父接口的MAC */
++	snprintf(cmd, sizeof(cmd), "ifconfig  %s hw ether `cat /sys/class/net/%s/address`",
++		vlandev->ifname, dev->ifname);
++	netifd_log_message(L_NOTICE, "[%s(%d)] cmd=%s", __func__, __LINE__, cmd);
++	system(cmd);
+ 	return 0;
+ }
+ 

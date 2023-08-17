@@ -1,0 +1,9 @@
+. /lib/functions.sh
+. /lib/functions/system.sh
+
+DEVPATH0=/class/ieee80211/phy0
+DEVPATH1=/class/ieee80211/phy1
+
+[ -e /sys${DEVPATH0}/macaddress ] && macaddr_add $(nvram get mac) 2 > /sys${DEVPATH0}/macaddress
+[ -e /sys${DEVPATH1}/macaddress ] && macaddr_add $(nvram get mac) 3 > /sys${DEVPATH1}/macaddress
+

@@ -1,0 +1,25 @@
+Source-Makefile: feeds/packages/lang/php8-pecl-sodium/Makefile
+Build-Depends: php8 !BUILD_NLS:libiconv
+
+Package: php8-pecl-sodium
+Submenu: PHP8
+Version: 2.0.23-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread php8 +libsodium
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: lang
+Category: Languages
+Repository: base
+Title: Bindings for libsodium
+Maintainer: W. Michael Petullo <mike@flyn.org>
+Source: libsodium-2.0.23.tgz
+License: ISC
+LicenseFiles: LICENSE
+Type: ipkg
+Description: Bindings for libsodium
+http://pecl.php.net/
+W. Michael Petullo <mike@flyn.org>
+@@
+
+

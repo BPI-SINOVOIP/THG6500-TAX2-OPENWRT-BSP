@@ -1,0 +1,26 @@
+diff -uprN a/led.c b/led.c
+--- a/led.c	2023-04-10 16:24:31.626660733 +0800
++++ b/led.c	2023-04-10 16:58:10.406998714 +0800
+@@ -161,6 +161,10 @@ led_timer_cb(struct led_timer *t)
+ 	int brightness, timeout;
+ 
+ 	switch (led->state) {
++	case LED_SET:
++		led_set(led, 0);
++		return;
++
+ 	case LED_BLINK_OFF:
+ 		timeout = led->b->on;
+ 		brightness = led->b->brightness;
+@@ -243,7 +247,10 @@ led_run(struct led *led)
+ 	switch (led->state) {
+ 	case LED_SET:
+ 		led_set(led, led->b->brightness);
+-		return;
++		timeout = led->b->on;
++		if (!timeout)
++			return;
++		break;
+ 
+ 	case LED_FADE_OUT:
+ 		timeout = timer_tick_interval;

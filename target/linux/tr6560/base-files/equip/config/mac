@@ -1,0 +1,30 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/system.sh
+
+action=$1
+value=$2
+case "$action" in
+	set)
+		if [ -z $value ]; then
+			echo "mac is null!"
+			exit 0
+		fi
+		rule="[a-f0-9A-F]\\([a-f0-9A-F]\\:[a-f0-9A-F]\\)\\{5\\}[a-f0-9A-F]"
+		reval=$(echo $value | grep -o ${rule})
+		if [ "$value" == "$reval" ]; then
+			nvram set mac=$value
+			nvram commit
+			echo "mac=$value"
+			echo "PASSED: set MAC OK!"
+		else
+			echo "mac=$value, it is a invalid mac!"
+		fi
+		;;
+	get)
+		nvram get mac
+		;;
+	*)
+		;;
+esac

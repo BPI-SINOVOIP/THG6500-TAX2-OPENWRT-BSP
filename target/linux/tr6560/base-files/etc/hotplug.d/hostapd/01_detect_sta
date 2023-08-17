@@ -1,0 +1,34 @@
+#!/bin/sh
+
+logger -t tri_hostapd -p notice "ACTION=$ACTION" "MAC=$MAC"
+
+do_unassoc_sta()
+{
+        mac_addr=`echo $1 | sed 's/://g'`
+
+        uci -c /var/state revert wifi.${mac_addr}
+        uci -c /var/state revert wifi.${mac_addr}.mac
+        uci -c /var/state revert wifi.${mac_addr}.channel
+        uci -c /var/state revert wifi.${mac_addr}.rssi
+
+        uci -c /var/state/ set wifi.${mac_addr}="unassoc_sta"
+        uci -c /var/state/ set wifi.${mac_addr}.mac="$1"
+        uci -c /var/state/ set wifi.${mac_addr}.channel="$2"
+        uci -c /var/state/ set wifi.${mac_addr}.rssi="$3"
+        uci -c /var/state/ commit wifi
+}
+
+do_sta()
+{
+        eval "ubus send hostapd.sta '{\"status\":\"$2\",\"mac\":\"$1\"}'"
+}
+
+case "$ACTION" in
+        "unassoc_sta")
+                do_unassoc_sta $MAC $CHANNEL $SIGNAL
+        ;;
+
+        "sta")
+                do_sta $MAC $STATUS
+        ;;
+esac

@@ -1,0 +1,43 @@
+#!/bin/sh
+
+
+state=$1
+trigger=none
+brightness=""
+level=
+port=0
+if [ "$state" = "on" ]; then
+    brightness=1
+    level=0
+elif [ "$state" = "off" ]; then
+    brightness=0
+    level=1
+else
+    echo "param of operating led is invalid!"
+    exit 0
+fi
+
+for led in /sys/class/leds/*; do
+    [ -e "${led}/trigger" ] && echo "$trigger" > "${led}/trigger"
+
+    [ -e "${led}/brightness" ] && echo "$brightness" > "${led}/brightness"
+done
+
+board=$(cat /tmp/sysinfo/board_name)
+case $board in
+    THG6400-TAC2)
+    port=4
+    ;;
+    THG6500-TAX2)
+    port=5
+    ;;
+esac
+for i in `seq $port`; do
+    cs_cli /home/cli/api/dfx/ethport/led_set -v port `expr $i - 1` data_led_mode $level > /dev/null
+done
+
+if [ "$state" = "on" ]; then
+    echo "All leds have been turned on"
+else
+    echo "All leds have been turned off"
+fi

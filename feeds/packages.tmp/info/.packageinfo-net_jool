@@ -1,0 +1,47 @@
+Source-Makefile: feeds/packages/net/jool/Makefile
+Build-Depends: !USE_GLIBC:argp-standalone
+
+Package: kmod-jool-netfilter
+Submenu: Network Support
+Version: <LINUX_VERSION>+2022-01-20-0
+Depends: @IPV6 +kmod-crypto-md5 +kmod-nf-conntrack +kmod-nf-conntrack6
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: kernel
+Category: Kernel modules
+Title: Jool kernel module
+Maintainer: 
+Source: jool-2022-01-20.tar.xz
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Type: ipkg
+Description:     Jool is an Open Source SIIT and NAT64 for Linux.
+
+  This package provides the kernel module for Jool with netfilter API Only.
+
+@@
+
+Package: jool-tools-netfilter
+Version: 2022-01-20-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libnl +kmod-jool-netfilter
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Jool userspace control programs
+Maintainer: 
+Source: jool-2022-01-20.tar.xz
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Type: ipkg
+Description:     Jool is an Open Source SIIT and NAT64 for Linux.
+
+  This package provides the userspace control programs for Jool.
+https://www.jool.mx
+
+@@
+
+

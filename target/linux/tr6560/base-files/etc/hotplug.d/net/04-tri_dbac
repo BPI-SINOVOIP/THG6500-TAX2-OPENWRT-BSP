@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ ! -f "/lib/wifi/dbac.sh" ]; then
+    return
+fi
+
+string=`uci show wireless | grep "device=" | awk '{split($0,arr,".");print arr[2] }'`
+
+for iRadio_node in $string; do
+    ifname=`uci -q get wireless.$iRadio_node.ifname`
+    if [ -z $ifname ]; then
+        ifname=`uci -q -P /var/state get wireless.$iRadio_node.ifname`
+    fi
+
+    if [ "$ifname" = "$DEVICENAME" ]; then
+        if [ "$ACTION" = "add" ]; then
+            /lib/wifi/dbac.sh
+        fi
+    fi
+done

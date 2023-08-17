@@ -1,0 +1,40 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2021 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%define {
+    select Device.WiFi.DataElements.AgentConnectedEvent {
+        %read-only object AgentConnected [] {
+            counted with AgentConnectedNumberOfEntries;
+            %read-only string ID = "00:00:00:00:00:00";
+            %read-only datetime TimeStamp = "2020-08-31T11:22:39Z";
+
+            %read-only object Radio [] {
+                counted with RadioNumberOfEntries;
+                %read-only string ID = "00:00:00:00:00:00";
+
+                %read-only object BSS [] {
+                    counted with BSSNumberOfEntries;
+                    %read-only string BSSID = "00:00:00:00:00:00";
+                    %read-only string SSID = "0";
+
+                    %read-only object STA [] {
+                        counted with STANumberOfEntries;
+                        %read-only string MACAddress = "00:00:00:00:00:00";
+                        %read-only datetime TimeStamp = "2020-08-31T11:22:39Z";
+                        %read-only uint32 LastConnectTime = 0;
+                    }
+                }
+            }
+            %read-only object Neighbor [] {
+                counted with NeighborNumberOfEntries;
+                %read-only string ID = "00:00:00:00:00:00";
+            }
+        }
+    }
+}

@@ -1,0 +1,97 @@
+#!/bin/sh
+
+g_2g_ap_num=0
+g_5g_ap_num=0
+g_ap_num_change='false'
+
+# 只处理add/remove事件
+if [ "$ACTION" != "add" -a "$ACTION" != "remove" ] ; then
+    exit 0
+fi
+
+logger -t net_wifi_led -p notice "ACTION=$ACTION", "DEVICENAME=$DEVICENAME"
+
+wifi_iface_cb() {
+    # skip non-ap ssid
+    config_get mode "$1" mode
+    if [ -z "$mode" -o "$mode" != "ap" ]; then
+        return
+    fi
+
+    # skip ssid whose ifname doesn't match
+    ifname=`uci -q get wireless.${1}.ifname`
+    if [ -z "$ifname" -o "$ifname" != "$DEVICENAME" ]; then
+        return
+    fi
+
+
+    # ssid must contain device option
+    config_get device "$1" device
+    if [ -z "$device" ]; then
+        logger -t net_wifi_led -p error "device is empty: section_name=${1}"
+        return
+    fi
+
+    if [ "$device" = "radio0" ]; then
+        if [ "$ACTION" = "add" ]; then
+            g_2g_ap_num=`expr $g_2g_ap_num + 1`
+        else
+            g_2g_ap_num=`expr $g_2g_ap_num - 1`
+        fi
+    elif [ "$device" = "radio1" ]; then
+        if [ "$ACTION" = "add" ]; then
+            g_5g_ap_num=`expr $g_5g_ap_num + 1`
+        else
+            g_5g_ap_num=`expr $g_5g_ap_num - 1`
+        fi
+    else
+        logger -t net_wifi_led -p error "device must be radio0 or radio1: section_name=${1}"
+        return
+    fi
+
+    g_ap_num_change='true'
+}
+
+
+main()
+{
+    g_2g_ap_num=`uci -c /var/state/ -q get wifi.radio0.ap_num`
+    if [ -z "$g_2g_ap_num" ]; then
+        g_2g_ap_num=0
+    fi
+
+    g_5g_ap_num=`uci -c /var/state/ -q get wifi.radio1.ap_num`
+    if [ -z "$g_5g_ap_num" ]; then
+        g_5g_ap_num=0
+    fi
+
+    config_load wireless
+    config_foreach wifi_iface_cb wifi-iface
+
+    if [ $g_ap_num_change = 'true' ] ; then
+        logger -t net_wifi_led -p notice "g_2g_ap_num=${g_2g_ap_num}, g_5g_ap_num=${g_5g_ap_num}"
+        uci -q -c /var/state revert wifi.radio0.ap_num
+        uci -q -c /var/state revert wifi.radio1.ap_num
+        uci -c /var/state/ set wifi.radio0.ap_num="${g_2g_ap_num}"
+        uci -c /var/state/ set wifi.radio1.ap_num="${g_5g_ap_num}"
+        uci -c /var/state/ commit wifi
+
+        if [ ${g_2g_ap_num} -eq 0 ]; then
+            # logger -t net_wifi_led -p notice "clear 2g"
+            led.sh clear 2g
+        else
+            # logger -t net_wifi_led -p notice "set 2g"
+            led.sh set 2g
+        fi
+
+        if [ ${g_5g_ap_num} -eq 0 ]; then
+            # logger -t net_wifi_led -p notice "clear 5g"
+            led.sh clear 5g
+        else
+            # logger -t net_wifi_led -p notice "set 5g"
+            led.sh set 5g
+        fi 
+    fi
+}
+
+main

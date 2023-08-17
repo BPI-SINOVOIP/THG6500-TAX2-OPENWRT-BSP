@@ -1,0 +1,28 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2021 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements {
+        object FailedConnectionEvent {
+            object FailedConnectionEventData[] {
+                counted with FailedConnectionEventDataNumberOfEntries;
+                %read-only string MACAddress = "00:00:00:00:00:00";
+                %read-only string TimeStamp = "2020-08-31T11:22:39Z";
+                %read-only uint16 StatusCode = "0x1"; /* Default: 'Unspecified reason' */
+                %read-only uint16 ReasonCode = "0x1"; /* Default: 'Unspecified failure' */
+            }
+        }
+    }
+}

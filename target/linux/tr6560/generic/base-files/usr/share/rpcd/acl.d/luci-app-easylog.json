@@ -1,0 +1,12 @@
+{
+	"luci-app-easylog": {
+		"description": "PMS Log",
+		"read": {
+			"file": {
+				"/sbin/logread": [ "exec" ],
+				"/usr/sbin/logread": [ "exec" ],
+			},
+		}
+	}
+}
+

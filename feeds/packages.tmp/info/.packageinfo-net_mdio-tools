@@ -1,0 +1,23 @@
+Source-Makefile: feeds/packages/net/mdio-tools/Makefile
+
+Package: mdio-tools
+Version: 1.0.1-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libmnl
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Utilities
+Repository: base
+Title: mdio-tools Linux MDIO register access
+Maintainer: Damien Mascord <tusker@tusker.org>
+Source: mdio-tools-1.0.1.tar.xz
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Type: ipkg
+Description:   mdio-tools Linux MDIO register access
+https://github.com/wkz/mdio-tools.git
+Damien Mascord <tusker@tusker.org>
+@@
+
+

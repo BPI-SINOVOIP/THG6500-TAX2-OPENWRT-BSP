@@ -1,0 +1,25 @@
+Source-Makefile: feeds/packages/net/ooniprobe/Makefile
+Build-Depends: golang/host
+
+Package: ooniprobe
+Version: 3.14.2-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64)
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: OONI probe-cli
+Maintainer: Jan Pavlinec <jan.pavlinec1@gmail.com>
+Source: probe-cli-3.14.2.tar.gz
+License: BSD-3-Clause
+LicenseFiles: LICENSE.md
+Type: ipkg
+Description:   The next generation of  OONI(Open Observatory of Network Interference)
+  Probe Command Line Interface.
+https://ooni.org
+Jan Pavlinec <jan.pavlinec1@gmail.com>
+@@
+
+

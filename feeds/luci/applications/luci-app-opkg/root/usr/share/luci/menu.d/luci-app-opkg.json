@@ -1,0 +1,14 @@
+{
+	"admin/system/opkg": {
+		"title": "Software",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "opkg"
+		},
+		"depends": {
+			"acl": [ "luci-app-opkg" ],
+			"neq": { "prplmesh": { "@prplmesh": { "management_mode": "Multi-AP-Agent" } } }
+		}
+	}
+}

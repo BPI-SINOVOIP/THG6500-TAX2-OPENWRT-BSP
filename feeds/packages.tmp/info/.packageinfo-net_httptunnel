@@ -1,0 +1,24 @@
+Source-Makefile: feeds/packages/net/httptunnel/Makefile
+
+Package: httptunnel
+Version: 3.3-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread 
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Bidirectional data stream tunnelled in HTTP requests.
+Maintainer: Toni Uhlig <matzeton@googlemail.com>
+Source: httptunnel-3.3.tar.xz
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Type: ipkg
+Description:   httptunnel creates a bidirectional virtual data path tunnelled in HTTP
+  requests. The requests can be sent via an HTTP proxy if so desired.
+http://github.com/larsbrinkhoff/httptunnel.git
+Toni Uhlig <matzeton@googlemail.com>
+@@
+
+

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menuconfig ARCH_TRIDUCTOR
+	bool "Triductor SoC Support"
+	depends on ARCH_MULTI_V7
+	select ARM_GIC
+	help
+	  Support for Triductor All SoCs
+
+if ARCH_TRIDUCTOR
+
+choice
+	prompt "MACH TRI SOC TYPE"
+	depends on ARCH_TRIDUCTOR
+
+config MACH_TR6560
+	bool "Triductor TR6550 support"
+	select ARM_TIMER_SP804
+	select HAVE_ARM_TWD if SMP
+	select PHYLINK
+
+endchoice
+
+menu "Triductor SOC options"
+	depends on ARCH_TRIDUCTOR
+
+config TRI_LSW
+	bool "TRI LSW support"
+
+endmenu
+	   
+endif

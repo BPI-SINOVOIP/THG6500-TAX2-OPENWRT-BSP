@@ -1,0 +1,61 @@
+Source-Makefile: feeds/luci/applications/luci-app-xinetd/Makefile
+Build-Depends: lua/host luci-base/host LUCI_CSSTIDY:csstidy/host LUCI_SRCDIET:luasrcdiet/host 
+
+Package: luci-app-xinetd
+Submenu: 3. Applications
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +xinetd
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: LuCI Support for xinetd
+Maintainer: OpenWrt LuCI community
+Source: 
+Type: ipkg
+Description: LuCI Support for xinetd
+https://github.com/openwrt/luci
+OpenWrt LuCI community
+@@
+
+Package: luci-i18n-xinetd-de
+Default: LUCI_LANG_de||(ALL&&m)
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread luci-app-xinetd
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: luci-app-xinetd - de translation
+Maintainer: Helge Mader <ma@dev.tdt.de>
+Source: 
+Type: ipkg
+Hidden: 1
+Description:     Translation for luci-app-xinetd - Deutsch (German)
+Helge Mader <ma@dev.tdt.de>
+@@
+
+Package: luci-i18n-xinetd-en
+Default: LUCI_LANG_en||(ALL&&m)
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread luci-app-xinetd
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: luci-app-xinetd - en translation
+Maintainer: Helge Mader <ma@dev.tdt.de>
+Source: 
+Type: ipkg
+Hidden: 1
+Description:     Translation for luci-app-xinetd - English
+Helge Mader <ma@dev.tdt.de>
+@@
+
+

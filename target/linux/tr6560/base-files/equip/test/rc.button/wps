@@ -1,0 +1,21 @@
+#!/bin/sh
+
+
+. /lib/functions.sh
+
+case "$ACTION" in
+    pressed)
+        echo "Pressed wps button!" > /dev/console
+        [ -c /dev/pts/0 ] &&{
+            echo "Pressed wps button!" > /dev/pts/0
+        }
+    ;;
+    released)
+        echo "Released after continuously pressing wps button for $SEEN seconds!" > /dev/console
+        [ -c /dev/pts/0 ] &&{
+            echo "Released after continuously pressing wps button for $SEEN seconds!" > /dev/pts/0
+        }
+    ;;
+esac
+
+return 0

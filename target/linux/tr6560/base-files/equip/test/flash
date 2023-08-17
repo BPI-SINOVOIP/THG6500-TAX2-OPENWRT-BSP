@@ -1,0 +1,11 @@
+#!/bin/sh
+
+mtd erase /dev/mtd7
+mtd write /etc/openwrt_release /dev/mtd7
+testversion=`cat /dev/mtd7 | grep DISTRIB_RELEASE | cut -d = -f 2`
+curversion=`cat /etc/openwrt_release | grep DISTRIB_RELEASE | cut -d = -f 2`
+if [ "${testversion}" = "${curversion}" ]; then
+    echo "The reading, writing, and erasing of flash are all OK!"
+else
+    echo "The writing of flash is failed, it may have bad blocks!"
+fi

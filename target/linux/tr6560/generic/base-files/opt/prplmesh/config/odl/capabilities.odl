@@ -1,0 +1,160 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements.Network.Device.Radio.Capabilities {
+
+        /**
+        ** Need to add here HTCapabilities, VHTCapabilities, HECapabilities
+        ** from mids which defined in controller.odl
+        **/
+
+        /* Authentication and Key Management (AKM) Suite (security mode) capabilities for the fronthaul BSS. */
+        %read-only object AKMFrontHaul [] {
+            counted with AKMFrontHaulNumberOfEntries;
+
+            %read-only string OUI;
+            %read-only uint32 Type {
+                on action validate call check_range [0, 255];
+            }
+        }
+
+        /* Authentication and Key Management (AKM) Suite (security mode) capabilities for the backhaul BSS. */
+        %read-only object AKMBackhaul [] {
+            counted with AKMBackhaulNumberOfEntries;
+
+            %read-only string OUI;
+            %read-only uint32 Type {
+                on action validate call check_range [0, 255];
+            }
+        }
+
+        object OperatingClasses [] {
+            counted with OperatingClassesNumberOfEntries;
+            %read-only uint32 Class = 0 {
+                on action validate call check_range [0, 255];
+            }
+            %read-only int32 MaxTxPower = 0 {
+                on action validate call check_range [-127, 127];
+            }
+            %read-only object NonOperable [] {
+                uint32 NonOpChannelNumber;
+                counted with NumberOfNonOperChan;
+            }
+        }
+
+        /* Describes the Wi-Fi 6 capabilities for the backhaul Station (bSTA) role. */
+        object WiFi6bSTARole []{
+            %read-only bool HE160;                      /* HE 160 MHz bandwidth support. */
+            %read-only bool HE8080;                     /* HE 80+80 MHz bandwidth support. */
+
+            object MCSNSS[] {
+                counted with MCSNSSNumberOfEntries;
+                %read-only uint32 MCSNSSSet;            /* Individual MCS and NSS set*/
+            }
+
+            %read-only bool SUBeamformer;               /* Single-user beamformer support. */
+            %read-only bool SUBeamformee;               /* Single-user beamformee support. */
+            %read-only bool MUBeamformer;               /* Multi-user beamformer support. */
+            %read-only bool Beamformee80orLess;         /* Beamformee STS ≤ 80 MHz support. */
+            %read-only bool BeamformeeAbove80;          /* Beamformee STS > 80 MHz support. */
+
+            %read-only bool ULMUMIMO;                   /* UL MU-MIMO support. */
+            %read-only bool ULOFDMA;                    /* UL OFDMA support. */
+
+            /* Maximum number of users supported per DL MU-MIMO TX in an AP role. */
+            %read-only uint32 MaxDLMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL MU-MIMO RX in an AP role. */
+            %read-only uint32 MaxULMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per DL OFDMA TX in an AP role. */
+            %read-only uint32 MaxDLOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL OFDMA RX in an AP role */
+            %read-only uint32 MaxULOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+
+            %read-only bool RTS;                        /* Request To Send (RTS) support. */
+            %read-only bool MURTS;                      /* Multi-user RTS support. */
+            %read-only bool MultiBSSID;                 /* Multi-BSSID support. */
+            %read-only bool MUEDCA;                     /* Multi-user enhanced distributed channel access (MU EDCA) support. */
+            %read-only bool TWTRequestor;               /* TWT Requester support. */
+            %read-only bool TWTResponder;               /* TWT Responder support. */
+            %read-only bool SpatialReuse;               /* EasyMesh configuration and reporting of BSS Color/Spatial Reuse support. */
+            %read-only bool AnticipatedChannelUsage;    /* Anticipated Channel Usage (ACU) reporting support. */
+        }
+
+        /* Describes the Wi-Fi 6 capabilities for the AP role. */
+        object WiFi6APRole []{
+            %read-only bool HE160;                      /* HE 160 MHz bandwidth support. */
+            %read-only bool HE8080;                     /* HE 80+80 MHz bandwidth support. */
+
+            object MCSNSS[] {
+                counted with MCSNSSNumberOfEntries;
+                %read-only uint32 MCSNSSSet;            /* Individual MCS and NSS set*/
+            }
+
+            %read-only bool SUBeamformer;               /* Single-user beamformer support. */
+            %read-only bool SUBeamformee;               /* Single-user beamformee support. */
+            %read-only bool MUBeamformer;               /* Multi-user beamformer support. */
+            %read-only bool Beamformee80orLess;         /* Beamformee STS ≤ 80 MHz support. */
+            %read-only bool BeamformeeAbove80;          /* Beamformee STS > 80 MHz support. */
+
+            %read-only bool ULMUMIMO;                   /* UL MU-MIMO support. */
+            %read-only bool ULOFDMA;                    /* UL OFDMA support. */
+
+            /* Maximum number of users supported per DL MU-MIMO TX in an AP role. */
+            %read-only uint32 MaxDLMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL MU-MIMO RX in an AP role. */
+            %read-only uint32 MaxULMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per DL OFDMA TX in an AP role. */
+            %read-only uint32 MaxDLOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL OFDMA RX in an AP role */
+            %read-only uint32 MaxULOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+
+            %read-only bool RTS;                        /* Request To Send (RTS) support. */
+            %read-only bool MURTS;                      /* Multi-user RTS support. */
+            %read-only bool MultiBSSID;                 /* Multi-BSSID support. */
+            %read-only bool MUEDCA;                     /* Multi-user enhanced distributed channel access (MU EDCA) support. */
+            %read-only bool TWTRequestor;               /* TWT Requester support. */
+            %read-only bool TWTResponder;               /* TWT Responder support. */
+            %read-only bool SpatialReuse;               /* EasyMesh configuration and reporting of BSS Color/Spatial Reuse support. */
+            %read-only bool AnticipatedChannelUsage;    /* Anticipated Channel Usage (ACU) reporting support. */
+        }
+
+        %read-only object VBSSCapabilities {
+            %read-only uint8 MaxVBSS = 0;
+            %read-only bool VBSSsSubtract;
+            %read-only bool ApplyVBSSIDRestrictions;
+            %read-only bool ApplyVBSSIDMatchMaskRestrictions;
+            %read-only bool ApplyVBSSIDFixedBitsRestrictions;
+            %read-only string VBSSIDFixedBitsMask;
+            %read-only string VBSSIDFixedBitsValue;
+        }
+    }
+}

@@ -1,0 +1,21 @@
+Source-Makefile: feeds/packages/net/udhcpsnoop/Makefile
+
+Package: udhcpsnoop
+Version: 2021-05-30-b86639904147a40be32ac43cd89c21109ffc3543-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libubox +libubus +libuci
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: DHCP Snooping Daemon
+Maintainer: John Crispin <john@phrozen.org>
+Source: udhcpsnoop-2021-05-30-b86639904147a40be32ac43cd89c21109ffc3543.tar.xz
+License: BSD-3-Clause
+Type: ipkg
+Description: DHCP Snooping Daemon
+John Crispin <john@phrozen.org>
+@@
+
+

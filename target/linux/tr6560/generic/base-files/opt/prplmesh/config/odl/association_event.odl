@@ -1,0 +1,39 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements {
+        // The events generated when a STA associates to a BSS.
+        object AssociationEvent {
+            object AssociationEventData[] {
+                counted with AssociationEventDataNumberOfEntries;
+                /**
+                ** Need to add here HTCapabilities, VHTCapabilities, HECapabilities
+                ** from mids which defined in controller.odl
+                **/
+                %read-only string BSSID;  /* The MAC address of the logical BSS (BSSID) which is
+                                            reporting the association event. */
+                %read-only string MACAddress;  /* MAC address of the associating station */
+                %read-only uint16 StatusCode;  /* The status code sent to the STA in the
+                                                latest Association Response frame */
+                // The time this event was collected
+                %read-only string TimeStamp = "2020-08-31T11:22:39Z";
+                %read-only string ClientCapabilities; /* The frame body of the most recently
+                                                       received (Re)Association Request frame
+                                                       from this client (STA) */
+            }
+        }
+    }
+}

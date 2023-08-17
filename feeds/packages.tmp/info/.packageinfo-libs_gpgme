@@ -1,0 +1,48 @@
+Source-Makefile: feeds/packages/libs/gpgme/Makefile
+
+Package: libgpgme
+Version: 1.17.1-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libassuan +libgpg-error
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: GnuPG Made Easy (GPGME) library
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: gpgme-1.17.1.tar.bz2
+License: GPL-3.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description: GnuPG Made Easy (GPGME) is a library designed to make access to GnuPG
+easier for applications. It provides a High-Level Crypto API for
+encryption, decryption, signing, signature verification and key
+management. Currently it uses GnuPG's OpenPGP backend as the default,
+but the API isn't restricted to this engine. We have, in fact, already
+developed a backend for CMS (S/MIME).
+https://gnupg.org/software/gpgme/index.html
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+Package: libgpgmepp
+Version: 1.17.1-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libgpgme +libstdcpp
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: GnuPG Made Easy (GPGME) library (C++)
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: gpgme-1.17.1.tar.bz2
+License: GPL-3.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description: GnuPG Made Easy (GPGME) library (C++)
+https://gnupg.org/software/gpgme/index.html
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+

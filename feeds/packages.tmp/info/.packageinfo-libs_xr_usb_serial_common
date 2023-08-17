@@ -1,0 +1,23 @@
+Source-Makefile: feeds/packages/libs/xr_usb_serial_common/Makefile
+
+Package: kmod-usb-serial-xr_usb_serial_common
+Submenu: USB Support
+Version: <LINUX_VERSION>+2022-03-30-ecc6ebe0141b97942d774e6c6be37a330cc11a74-0
+Depends:  kmod-usb-serial
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: kernel
+Category: Kernel modules
+Title: Support for Exar USB to RS-485/RS-422
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: usb-serial-xr_usb_serial_common-2022-03-30-ecc6ebe0141b97942d774e6c6be37a330cc11a74.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: LICENSE
+Type: ipkg
+Description: Support for Exar USB to RS-485/RS-422
+https://www.exar.com/content/document.ashx?id=21651
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+

@@ -1,0 +1,7 @@
+config udp 'udp'
+	option enable '0'
+	option port ''
+	option SourceIPAddress ''
+	option EchoPlusEnabled ''
+	option loglevel '4'
+#Log levels: Critical=0, Warning=1, Notice=2, Info=3, Debug=4

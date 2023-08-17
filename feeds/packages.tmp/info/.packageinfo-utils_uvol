@@ -1,0 +1,58 @@
+Source-Makefile: feeds/packages/utils/uvol/Makefile
+
+Package: autopart
+Submenu: Disc
+Version: 0.8-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +lvm2 +partx-utils +sfdisk
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: utils
+Category: Utilities
+Repository: base
+Title: Automatically initialize LVM partition
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: 
+License: GPL-2.0-or-later
+Type: ipkg
+Description:  Automatically allocate and initialize a partition for LVM on first boot.
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+Package: uvol
+Submenu: Disc
+Version: 0.8-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +blockd +ucode +ucode-mod-fs +ucode-mod-math +ucode-mod-uci
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: utils
+Category: Utilities
+Repository: base
+Title: OpenWrt UBI/LVM volume abstraction
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: 
+License: GPL-2.0-or-later
+Type: ipkg
+Description:   'uvol' is a tool to automate storage volume handling on embedded
+  devices in a generic way.
+  Depending on what is available, 'uvol' will use either UBI or LVM2
+  as storage backends and transparently offer identical operations on
+  top of them.
+
+  Also install the 'autopart' package to easily make use of 'uvol' on
+  block-storage based devices.
+
+  Examples:
+  uvol create example_volume_1 268435456 rw
+  uvol up example_volume_1
+  uvol device example_volume_1
+
+  uvol create example_volume_2 9812733 ro
+  cat example_volume_2.squashfs | uvol write example_volume_2 9812733
+  uvol up example_volume_2
+  uvol device example_volume_2
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+

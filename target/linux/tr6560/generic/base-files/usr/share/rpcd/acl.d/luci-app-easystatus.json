@@ -1,0 +1,11 @@
+{
+	"luci-app-easystatus": {
+		"description": "EasyCwmp Daemon Status",
+		"read": {
+			"file": {
+				"/bin/ubus": [ "exec" ],
+			},
+		}
+	}
+}
+

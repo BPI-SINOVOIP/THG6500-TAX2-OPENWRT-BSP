@@ -1,0 +1,16 @@
+#!/bin/sh
+
+freemem=$(free | grep Mem | awk '{print $7}')
+if [ $freemem -gt 15000 ]; then
+    freemem=`expr $freemem - 5000`
+else
+    freemem=5000
+fi
+testret=`memtester ${freemem}K 1`
+ret=$(echo "$testret" | grep -o "Done." | wc -l)
+if [ $ret -gt 0 ]; then
+    echo "PASSED: memory test ok!"
+else
+    echo "FAILED: memory test error!"
+fi
+

@@ -1,0 +1,139 @@
+diff -Naru a/drivers/gpio/gpiolib.c b/drivers/gpio/gpiolib.c
+--- a/drivers/gpio/gpiolib.c	2023-07-10 09:54:27.838186638 +0800
++++ b/drivers/gpio/gpiolib.c	2023-07-11 13:33:30.457964175 +0800
+@@ -2934,6 +2934,17 @@
+ 	gc->set(gc, gpio_chip_hwgpio(desc), value);
+ }
+ 
++static void gpiod_set_blink_value_commit(struct gpio_desc *desc, int value, unsigned long *delay_on, unsigned long *delay_off)
++{
++	struct gpio_chip	*gc;
++
++	gc = desc->gdev->chip;
++	if (gc->set_blink) {
++		gc->set_blink(gc, gpio_chip_hwgpio(desc), value, delay_on, delay_off);
++	}
++}
++
++
+ /*
+  * set multiple outputs on the same chip;
+  * use the chip's set_multiple function if available;
+@@ -3119,6 +3130,14 @@
+ }
+ EXPORT_SYMBOL_GPL(gpiod_set_value);
+ 
++void gpiod_set_value_blink(struct gpio_desc *desc, int value, unsigned long *delay_on, unsigned long *delay_off)
++{
++	VALIDATE_DESC_VOID(desc);
++	gpiod_set_blink_value_commit(desc, value, delay_on, delay_off);
++}
++EXPORT_SYMBOL_GPL(gpiod_set_value_blink);
++
++
+ /**
+  * gpiod_set_raw_array_value() - assign values to an array of GPIOs
+  * @array_size: number of elements in the descriptor array / value bitmap
+diff -Naru a/drivers/leds/led-core.c b/drivers/leds/led-core.c
+--- a/drivers/leds/led-core.c	2022-08-25 17:38:24.000000000 +0800
++++ b/drivers/leds/led-core.c	2023-07-25 15:41:33.696696920 +0800
+@@ -176,10 +176,17 @@
+ 		     unsigned long *delay_on,
+ 		     unsigned long *delay_off)
+ {
++#ifdef CONFIG_ARCH_TRIDUCTOR
++	if (test_bit(LED_BLINK_ONESHOT, &led_cdev->work_flags) && led_cdev->blink_set &&
++	    !led_cdev->blink_set(led_cdev, delay_on, delay_off)){
++		return;
++	}
++#else
+ 	if (!test_bit(LED_BLINK_ONESHOT, &led_cdev->work_flags) &&
+ 	    led_cdev->blink_set &&
+ 	    !led_cdev->blink_set(led_cdev, delay_on, delay_off))
+ 		return;
++#endif
+ 
+ 	/* blink with 1 Hz as default if nothing specified */
+ 	if (!*delay_on && !*delay_off)
+diff -Naru a/drivers/leds/leds-gpio.c b/drivers/leds/leds-gpio.c
+--- a/drivers/leds/leds-gpio.c	2022-08-25 17:38:24.000000000 +0800
++++ b/drivers/leds/leds-gpio.c	2023-07-11 13:39:03.469425444 +0800
+@@ -31,6 +31,19 @@
+ 	return container_of(led_cdev, struct gpio_led_data, cdev);
+ }
+ 
++static int gpio_led_blink_set(struct gpio_desc *desc, int state, unsigned long *delay_on, unsigned long *delay_off)
++{
++	switch (state){
++		case GPIO_LED_NO_BLINK_LOW:
++		case GPIO_LED_NO_BLINK_HIGH:
++		case GPIO_LED_BLINK:
++			gpiod_set_value_blink(desc, state, delay_on, delay_off);
++			break;
++	}
++	return 0;
++}
++
++
+ static void gpio_led_set(struct led_classdev *led_cdev,
+ 	enum led_brightness value)
+ {
+@@ -177,7 +190,7 @@
+ 		if (fwnode_property_present(child, "panic-indicator"))
+ 			led.panic_indicator = 1;
+ 
+-		ret = create_gpio_led(&led, led_dat, dev, child, NULL);
++		ret = create_gpio_led(&led, led_dat, dev, child, gpio_led_blink_set);
+ 		if (ret < 0) {
+ 			fwnode_handle_put(child);
+ 			return ERR_PTR(ret);
+diff -Naru a/drivers/leds/trigger/ledtrig-netdev.c b/drivers/leds/trigger/ledtrig-netdev.c
+--- a/drivers/leds/trigger/ledtrig-netdev.c	2022-08-25 17:38:24.000000000 +0800
++++ b/drivers/leds/trigger/ledtrig-netdev.c	2023-07-11 13:38:00.810930597 +0800
+@@ -386,7 +386,7 @@
+ 	}
+ 
+ 	schedule_delayed_work(&trigger_data->work,
+-			(atomic_read(&trigger_data->interval)*2));
++			(atomic_read(&trigger_data->interval)*6));
+ }
+ 
+ static int netdev_trig_activate(struct led_classdev *led_cdev)
+diff -Naru a/include/linux/gpio/consumer.h b/include/linux/gpio/consumer.h
+--- a/include/linux/gpio/consumer.h	2023-07-10 09:53:51.198957837 +0800
++++ b/include/linux/gpio/consumer.h	2023-07-10 15:59:18.422944821 +0800
+@@ -119,6 +119,9 @@
+ 			  struct gpio_desc **desc_array,
+ 			  struct gpio_array *array_info,
+ 			  unsigned long *value_bitmap);
++
++void gpiod_set_value_blink(struct gpio_desc *desc, int value, unsigned long *delay_on, unsigned long *delay_off);
++
+ void gpiod_set_value(struct gpio_desc *desc, int value);
+ int gpiod_set_array_value(unsigned int array_size,
+ 			  struct gpio_desc **desc_array,
+@@ -370,6 +373,11 @@
+ 	WARN_ON(desc_array);
+ 	return 0;
+ }
++static inline void gpiod_set_value_blink(struct gpio_desc *desc, int value, unsigned long *delay_on, unsigned long *delay_off)
++{
++	/* GPIO can never have been requested */
++	WARN_ON(desc);
++}
+ static inline void gpiod_set_value(struct gpio_desc *desc, int value)
+ {
+ 	/* GPIO can never have been requested */
+diff -Naru a/include/linux/gpio/driver.h b/include/linux/gpio/driver.h
+--- a/include/linux/gpio/driver.h	2023-07-10 09:53:39.300871069 +0800
++++ b/include/linux/gpio/driver.h	2023-07-10 15:59:09.456519426 +0800
+@@ -405,6 +405,9 @@
+ 
+ 	int			(*add_pin_ranges)(struct gpio_chip *gc);
+ 
++	void		(*set_blink)(struct gpio_chip *gc,
++						unsigned int offset, int value, unsigned long *delay_on, unsigned long *delay_off);
++
+ 	int			base;
+ 	u16			ngpio;
+ 	const char		*const *names;

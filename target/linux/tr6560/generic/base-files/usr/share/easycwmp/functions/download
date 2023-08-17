@@ -1,0 +1,143 @@
+#!/bin/sh
+# Copyright (C) 2015 PIVA Software <www.pivasoftware.com>
+# 	Author: Anis Ellouze <anis.ellouze@pivasoftware.com>
+
+DOWNLOAD_DIR="/tmp/easycwmp_download"
+# Fault codes
+E_REQUEST_DENIED="1"
+E_INTERNAL_ERROR="2"
+E_INVALID_ARGUMENTS="3"
+E_RESOURCES_EXCEEDED="4"
+E_INVALID_PARAMETER_NAME="5"
+E_INVALID_PARAMETER_TYPE="6"
+E_INVALID_PARAMETER_VALUE="7"
+E_NON_WRITABLE_PARAMETER="8"
+E_NOTIFICATION_REJECTED="9"
+E_DOWNLOAD_FAILURE="10"
+E_UPLOAD_FAILURE="11"
+E_FILE_TRANSFER_AUTHENTICATION_FAILURE="12"
+E_FILE_TRANSFER_UNSUPPORTED_PROTOCOL="13"
+E_DOWNLOAD_FAIL_MULTICAST_GROUP="14"
+E_DOWNLOAD_FAIL_CONTACT_SERVER="15"
+E_DOWNLOAD_FAIL_ACCESS_FILE="16"
+E_DOWNLOAD_FAIL_COMPLETE_DOWNLOAD="17"
+E_DOWNLOAD_FAIL_FILE_CORRUPTED="18"
+E_DOWNLOAD_FAIL_FILE_AUTHENTICATION="19"
+UCI_COMMIT="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} commit"
+UCI_GET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} get"
+DEFAULT_DOWNLOAD_SSL_FILE_TYPE="X EASYCWMP_ORG CA SSL CERT"
+
+
+action="$1"
+file_type="$2"
+dw_url="$3"
+file_size="$4"
+user_name="$5"
+password="$6"
+
+SSL_CACERT=`$UCI_GET easycwmp.@acs[0].ssl_cacert`
+SSL_CERT=`$UCI_GET easycwmp.@acs[0].ssl_cert`
+
+OPTS_CERTS="${SSL_CACERT:+--cacert $SSL_CACERT} ${SSL_CERT:+--cert $SSL_CERT}"
+
+debug() {
+	echo "$1" >&2
+}
+
+download() {
+	dl_size=`df  |grep  "/tmp$" | awk '{print $4;}'`
+	[ -n "$dl_size" ] && dl_size_byte=$((${dl_size}*1024))
+	if [ -n "$dl_size" -a "$dl_size_byte" -lt "$file_size" ]; then
+		let fault_code=9000+$E_DOWNLOAD_FAILURE
+		echo "$fault_code"
+	else 
+		rm -rf $DOWNLOAD_DIR 2> /dev/null
+		mkdir -p $DOWNLOAD_DIR
+		if [ "$user_name" != "" ]; then
+			curl --user "$user_name:$password" $OPTS_CERTS --fail --silent --connect-timeout 30 -o "$DOWNLOAD_DIR/downloadfile" "$dw_url"
+			fault_code="$?"
+		else
+			curl $OPTS_CERTS --fail --silent --connect-timeout 30 -o "$DOWNLOAD_DIR/downloadfile" "$dw_url"
+			fault_code="$?"
+		fi
+		if [ "$fault_code" != "0" ]; then
+			rm -rf $DOWNLOAD_DIR 2> /dev/null
+			let fault_code=9000+$E_DOWNLOAD_FAILURE
+			echo "$fault_code"
+		else
+			echo "0"
+		fi
+	fi
+}
+
+apply_download() {
+	local download_ssl_file_type=`$UCI_GET easycwmp.@acs[0].download_ssl_file_type`
+	local ssl_cacert=`$UCI_GET easycwmp.@acs[0].ssl_cacert`
+	[ -z "$download_ssl_file_type" ] && download_ssl_file_type="$DEFAULT_DOWNLOAD_SSL_FILE_TYPE"
+
+	if [ "$file_type" = "3 Vendor Configuration File" ]; then 
+		dwfile=`ls $DOWNLOAD_DIR`
+		if [ "$dwfile" != "" ]; then
+			dwfile="$DOWNLOAD_DIR/$dwfile"
+			/sbin/sysupgrade --restore-backup $dwfile >/dev/null 2>&1
+			fault_code="$?"
+			if [ "$fault_code" != "0" ]; then
+				let fault_code=$E_DOWNLOAD_FAILURE+9000
+				echo "$fault_code"
+			else
+				$UCI_COMMIT
+				sync
+				reboot
+				echo "1"
+			fi
+		else
+			let fault_code=$E_DOWNLOAD_FAILURE+9000
+			echo "$fault_code"
+		fi
+	elif [ "$file_type" = "1 Firmware Upgrade Image" ]; then
+		local gr_backup=`grep "^/etc/easycwmp/\.backup\.xml" /etc/sysupgrade.conf`
+		[ -z "$gr_backup" ] && echo "/etc/easycwmp/.backup.xml" >> /etc/sysupgrade.conf
+		dwfile=`ls $DOWNLOAD_DIR`
+		if [ "$dwfile" != "" ]; then
+			dwfile="$DOWNLOAD_DIR/$dwfile"
+			/sbin/sysupgrade $dwfile
+			fault_code="$?"
+			if [ "$fault_code" != "0" ]; then
+				let fault_code=$E_DOWNLOAD_FAIL_FILE_CORRUPTED+9000
+				echo "$fault_code"
+			else
+				echo "1"
+			fi
+		else
+			let fault_code=$E_DOWNLOAD_FAILURE+9000
+			echo "$fault_code"
+		fi
+	elif [ "$file_type" = "$download_ssl_file_type" -a "$ssl_cacert" != "" ]; then
+		dwfile=`ls $DOWNLOAD_DIR`
+		if [ "$dwfile" != "" ]; then
+			dwfile="$DOWNLOAD_DIR/$dwfile"
+			local newcrt=`awk '/BEGIN CERTIFICATE/{found++}found==1{print $0}' $dwfile`
+			local lastcrt=`awk '/BEGIN CERTIFICATE/{found++}found==1{print $0}' $ssl_cacert`
+			fault_code="0"
+			if [ "$newcrt" != "$lastcrt" ]; then
+				awk '/BEGIN CERTIFICATE/{found++}found==1{print $0}' $ssl_cacert > /tmp/.f1 && cat $dwfile /tmp/.f1 > $ssl_cacert && rm /tmp/.f1
+				fault_code="$?"
+			fi
+			if [ "$fault_code" != "0" ]; then
+				let fault_code=$E_DOWNLOAD_FAIL_FILE_CORRUPTED+9000
+				echo "$fault_code"
+			else
+				echo "0"
+			fi
+		else
+			let fault_code=$E_DOWNLOAD_FAILURE+9000
+			echo "$fault_code"
+		fi
+	else
+		echo "$(($E_INVALID_ARGUMENTS+9000))"
+	fi
+	#rm -rf $DOWNLOAD_DIR 2> /dev/null
+}
+
+[ "$action" = "download" ] && { download; exit 0; } 2>/dev/null
+[ "$action" = "apply_download" ] && { apply_download; exit 0; } 2>/dev/null

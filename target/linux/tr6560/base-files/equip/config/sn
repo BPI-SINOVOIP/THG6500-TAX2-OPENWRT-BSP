@@ -1,0 +1,41 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/system.sh
+
+action=$1
+value=$2
+len=0
+case "$action" in
+	set)
+		if [ -z "$value" ]; then
+			echo "sn is null!"
+			exit 0
+		fi
+		len=${#value}
+		if [ $len -lt 6 -o $len -gt 20 ]; then
+			echo "length of setting sn is $len (${value}) error(length must be between 6 and 20)!"
+			exit 0
+		fi
+		reval=$(echo "$value" | grep -o '[^a-zA-Z0-9-]')
+		if [ "$reval" = "" ]; then
+			first=$(echo "$value" | grep -o '^[a-zA-Z]')
+			last=$(echo "$value" | grep -o '\d$')
+			if [ "$first" != "" -a "$last" != "" ]; then
+				nvram set sn=$value
+				nvram commit
+				echo "sn=$value"
+				echo "PASSED: set SN OK!"
+			else
+				echo "sn=$value, it is a invalid SN(must start with a letter and end with a number)!"
+			fi
+		else
+			echo "sn=$value, it is a invalid SN(Can only contain [a-zA-Z0-9-])!"
+		fi
+		;;
+	get)
+		nvram get sn
+		;;
+	*)
+		;;
+esac

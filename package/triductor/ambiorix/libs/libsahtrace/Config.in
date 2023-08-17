@@ -1,0 +1,43 @@
+config PACKAGE_libsahtrace
+    tristate
+    select SAH_LIB_SAHTRACE
+
+if PACKAGE_libsahtrace
+
+menu "Select libsahtrace build options"
+    depends on PACKAGE_libsahtrace
+
+config SAH_LIB_SAHTRACE
+    bool "Build SAH trace library"
+    default y
+
+config SAH_TRACES_ENABLED
+    bool "Enable SAH Traces"
+    default y
+
+config SAH_TRACES_LEVEL
+    int "Maximum Trace Level"
+    default 500
+
+config SAH_TRACES_SYSLOG_CONSOLE
+    bool "Fall back to console if syslog daemon is not running"
+    default y
+
+choice
+    prompt "Trace Color Scheme"
+    default SAH_TRACE_NO_COLORS
+
+config SAH_TRACE_NO_COLORS
+    bool "No colors"
+
+config SAH_TRACE_COLORS
+    bool "Full Color Scheme"
+
+config SAH_TRACE_COLORS_SIMPLE
+    bool "Simple Color Scheme"
+
+endchoice
+
+endmenu
+
+endif

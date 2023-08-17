@@ -1,0 +1,94 @@
+--- a/contrib/i2pd.conf
++++ b/contrib/i2pd.conf
+@@ -8,16 +8,16 @@
+ 
+ ## Tunnels config file
+ ## Default: ~/.i2pd/tunnels.conf or /var/lib/i2pd/tunnels.conf
+-# tunconf = /var/lib/i2pd/tunnels.conf
++tunconf = /etc/i2pd/tunnels.conf
+ 
+ ## Tunnels config files path
+ ## Use that path to store separated tunnels in different config files.
+ ## Default: ~/.i2pd/tunnels.d or /var/lib/i2pd/tunnels.d
+-# tunnelsdir = /var/lib/i2pd/tunnels.d
++tunnelsdir = /etc/i2pd/tunnels.d
+ 
+ ## Path to certificates used for verifying .su3, families
+ ## Default: ~/.i2pd/certificates or /var/lib/i2pd/certificates
+-# certsdir = /var/lib/i2pd/certificates
++certsdir = /usr/share/i2pd/certificates
+ 
+ ## Where to write pidfile (default: i2pd.pid, not used in Windows)
+ # pidfile = /run/i2pd.pid
+@@ -35,7 +35,7 @@
+ # logfile = /var/log/i2pd/i2pd.log
+ ## Log messages above this level (debug, info, *warn, error, none)
+ ## If you set it to none, logging will be disabled
+-# loglevel = warn
++loglevel = none
+ ## Write full CLF-formatted date and time to log (default: write only time)
+ # logclftime = true
+ 
+@@ -115,9 +115,9 @@ published = true
+ [http]
+ ## Web Console settings
+ ## Uncomment and set to 'false' to disable Web Console
+-# enabled = true
++enabled = true
+ ## Address and port service will listen on
+-address = 127.0.0.1
++address = 192.168.1.1
+ port = 7070
+ ## Path to web console, default "/"
+ # webroot = /
+@@ -132,9 +132,9 @@ port = 7070
+ 
+ [httpproxy]
+ ## Uncomment and set to 'false' to disable HTTP Proxy
+-# enabled = true
++enabled = true
+ ## Address and port service will listen on
+-address = 127.0.0.1
++address = 192.168.1.1
+ port = 4444
+ ## Optional keys file for proxy local destination
+ # keys = http-proxy-keys.dat
+@@ -146,9 +146,9 @@ port = 4444
+ 
+ [socksproxy]
+ ## Uncomment and set to 'false' to disable SOCKS Proxy
+-# enabled = true
++enabled = true
+ ## Address and port service will listen on
+-address = 127.0.0.1
++address = 192.168.1.1
+ port = 4447
+ ## Optional keys file for proxy local destination
+ # keys = socks-proxy-keys.dat
+@@ -162,7 +162,7 @@ port = 4447
+ 
+ [sam]
+ ## Comment or set to 'false' to disable SAM Bridge
+-enabled = true
++enabled = false
+ ## Address and port service will listen on
+ # address = 127.0.0.1
+ # port = 7656
+@@ -197,7 +197,7 @@ enabled = true
+ 
+ [upnp]
+ ## Enable or disable UPnP: automatic port forwarding (enabled by default in WINDOWS, ANDROID)
+-# enabled = false
++enabled = false
+ ## Name i2pd appears in UPnP forwardings list (default = I2Pd)
+ # name = I2Pd
+ 
+@@ -238,7 +238,7 @@ verify = true
+ 
+ [limits]
+ ## Maximum active transit sessions (default:2500)
+-# transittunnels = 2500
++transittunnels = 500
+ ## Limit number of open file descriptors (0 - use system limit)
+ # openfiles = 0
+ ## Maximum size of corefile in Kb (0 - use system limit)

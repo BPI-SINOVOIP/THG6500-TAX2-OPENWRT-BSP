@@ -1,0 +1,44 @@
+Source-Makefile: feeds/luci/applications/luci-app-openwisp/Makefile
+Build-Depends: lua/host luci-base/host LUCI_CSSTIDY:csstidy/host LUCI_SRCDIET:luasrcdiet/host 
+
+Package: luci-app-openwisp
+Submenu: 3. Applications
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +openwisp-config
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: LuCI support for OpenWISP
+Maintainer: OpenWrt LuCI community
+Source: 
+License: GPL-2.0-or-later
+Type: ipkg
+Description:    Allows configuration of OpenWISP agent settings
+https://github.com/openwrt/luci
+OpenWrt LuCI community
+@@
+
+Package: luci-i18n-openwisp-es
+Default: LUCI_LANG_es||(ALL&&m)
+Version: x
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread luci-app-openwisp
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: luci
+Category: LuCI
+Repository: base
+Title: luci-app-openwisp - es translation
+Maintainer: Nicholas Smith <nicholas@nbembedded.com>
+Source: 
+License: GPL-2.0-or-later
+Type: ipkg
+Hidden: 1
+Description:     Translation for luci-app-openwisp - Español (Spanish)
+Nicholas Smith <nicholas@nbembedded.com>
+@@
+
+

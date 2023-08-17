@@ -1,0 +1,93 @@
+#!/bin/sh
+# Copyright (C) 2019 PIVA Software <www.pivasoftware.com>
+# 	Author: AHMED Sahnoun <ahmed.sahnoun@pivasoftware.com>
+NSLOOKUP_FILE="/var/nslookup"
+
+[ "$1" != "run" -a "$1" != "stop" ] && return
+
+UCI_GET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state get"
+UCI_SET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state set"
+
+nslookup_get() {
+	local val=`$UCI_GET_VARSTATE $1`
+	echo ${val:-$2}
+}
+
+nslookup_launch() {
+	local i res cr tr start end su
+	[ "`$UCI_GET_VARSTATE easycwmp.@local[0].NslookupDiagnosticsState`" != "Requested" ] && return
+	local host=`nslookup_get easycwmp.@local[0].NslookupHost`
+	local cnt=`nslookup_get easycwmp.@local[0].NslookupRepetitions 1`
+	local timeout=`nslookup_get easycwmp.@local[0].NslookupTimeout 3000`
+	local DNSServer=`nslookup_get easycwmp.@local[0].DNSServer `
+
+	[ "$host" = "" ] && return
+	timeout=$((timeout/1000))
+	[ "$timeout" = "0" ] && timeout="1"
+	i=0
+	su=0
+	rm -f NSLOOKUP_FILE
+	while [ $i -lt $cnt ]; do
+		let i++
+		res=$(time timeout -t $timeout nslookup $host $DNSServer 2>&1 >/tmp/nslookup || echo "" > /tmp/nslookup)
+		cr=`echo "$res" | grep "can't resolve"`
+		[ -n "$cr" ] && {
+			echo "nslookupDiagnosticsResultState:Error_HostNameNotResolved" 2>&1 >> NSLOOKUP_FILE
+			echo "nslookupDiagnosticsAnswerType:None" 2>&1 >> NSLOOKUP_FILE
+			echo "nslookupDiagnosticsDNSServerIP:$DNSServer" 2>&1 >> NSLOOKUP_FILE
+			echo $res >> NSLOOKUP_FILE
+			echo "##########:##########" 2>&1 >> NSLOOKUP_FILE
+			continue;}
+
+		tr=`echo "$res" | grep "terminated"`
+
+		[ -n "$tr" ]  && { 
+			echo "nslookupDiagnosticsResultState:Error_Timeout" 2>&1 >> NSLOOKUP_FILE
+			echo "nslookupDiagnosticsAnswerType:None" 2>&1 >> NSLOOKUP_FILE
+			echo "nslookupDiagnosticsDNSServerIP:$DNSServer" 2>&1 >> NSLOOKUP_FILE
+			echo $res >> NSLOOKUP_FILE
+			echo "##########:##########" 2>&1 >> NSLOOKUP_FILE
+			continue;}
+			echo "nslookupDiagnosticsResultState:Complete" 2>&1 >> NSLOOKUP_FILE
+			let su++
+			cat /tmp/nslookup >> NSLOOKUP_FILE
+			echo $res >> NSLOOKUP_FILE
+			echo "##########:##########" 2>&1 >> NSLOOKUP_FILE
+	done
+
+	$UCI_SET_VARSTATE easycwmp.@local[0].SuccessCount=$su
+	if [ "$su" != "0" ] 
+	then 
+		$UCI_SET_VARSTATE easycwmp.@local[0].NslookupDiagnosticsState=Complete;
+	else
+		$UCI_SET_VARSTATE easycwmp.@local[0].NslookupDiagnosticsState=Error_DNSServerNotResolved;
+	fi
+
+
+	event_dignostic
+}
+
+
+event_dignostic() {
+	local e=1
+	local i=0
+	while [ "$e" != 0 -a $i -lt 3 ]; do	
+		ubus -t 1 call tr069 inform '{"event":"8 DIAGNOSTICS COMPLETE"}'
+		e=$?
+		[ "$e" != "0" ] && sleep 1;
+		let i++
+	done
+}
+
+nslookup_stop() {
+	local pids=`ps aux | grep nslookup_launch | grep -v grep | grep -v stop | awk '{print $2}'`
+	[ -z "$pids" ] && pids=`ps | grep nslookup_launch | grep -v grep | grep -v stop | awk '{print $1}'`
+	if [ -n "$pids" ]; then
+		kill -9 $pids 2>/dev/null
+		$UCI_SET_VARSTATE easycwmp.@local[0].NslookupDiagnosticsState=None
+	fi
+}
+
+[ "$1" == "run" ] && { nslookup_launch 2>/dev/null; exit 0; }
+[ "$1" == "stop" ] && nslookup_stop 2>/dev/null
+

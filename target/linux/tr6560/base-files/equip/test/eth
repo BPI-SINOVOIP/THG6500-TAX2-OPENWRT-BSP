@@ -1,0 +1,120 @@
+#!/bin/sh
+
+lanport=0
+link=
+workmode=
+board=$(cat /tmp/sysinfo/board_name)
+case $board in
+    THG6400-TAC2)
+    lanport=3
+    ;;
+    THG6500-TAX2)
+    lanport=4
+    ;;
+    *)
+    exit 0
+    ;;
+esac
+for i in `seq $lanport`; do
+    let link=`cs_cli /home/cli/api/hal/port/port_eth_status_get -v port $i | grep -r link | cut -d = -f 2 | cut -d ' ' -f 2`
+    let workmode=`cs_cli /home/cli/api/hal/port/port_eth_status_get -v port $i | grep -r workmode |  cut -d = -f 2 | cut -d ' ' -f 2`
+    if [ ${link} -eq 1 ]; then
+        case ${workmode} in
+            0)
+            echo "PASSED: LAN$i is up, mode is AUTO NEGO"
+            ;;
+            1)
+            echo "PASSED: LAN$i is up, mode is 10M HALF"
+            ;;
+            2)
+            echo "PASSED: LAN$i is up, mode is 100M HALF"
+            ;;
+            3)
+            echo "PASSED: LAN$i is up, mode is 1000M HALF"
+            ;;
+            4)
+            echo "PASSED: LAN$i is up, mode is 10M FULL"
+            ;;
+            5)
+            echo "PASSED: LAN$i is up, mode is 100M FULL"
+            ;;
+            6)
+            echo "PASSED: LAN$i is up, mode is 1000M FULL"
+            ;;
+            7)
+            echo "PASSED: LAN$i is up, mode is TEST"
+            ;;
+            8)
+            echo "PASSED: LAN$i is up, mode is 2500M HALF"
+            ;;
+            9)
+            echo "PASSED: LAN$i is up, mode is 2500M FULL"
+            ;;
+            10)
+            echo "PASSED: LAN$i is up, mode is 5000M HALF"
+            ;;
+            11)
+            echo "PASSED: LAN$i is up, mode is 5000M FULL"
+            ;;
+            12)
+            echo "PASSED: LAN$i is up, mode is 10000M HALF"
+            ;;
+            13)
+            echo "PASSED: LAN$i is up, mode is 10000M FULL"
+            ;;
+        esac
+    else
+        echo "PASSED: LAN${i} is down"
+    fi
+done
+
+let wanlink=$(cs_cli /home/cli/api/hal/port/port_eth_status_get -v port 9 | grep -r link |  cut -d = -f 2 | cut -d ' ' -f 2)
+let wanworkmode=$(cs_cli /home/cli/api/hal/port/port_eth_status_get -v port 9 | grep -r workmode |  cut -d = -f 2 | cut -d ' ' -f 2)
+if [ $wanlink -eq 1 ]; then
+    case $wanworkmode in
+        0)
+        echo "PASSED: ETH WAN is up, mode is AUTO NEGO"
+        ;;
+        1)
+        echo "PASSED: LETH WAN is up, mode is 10M HALF"
+        ;;
+        2)
+        echo "PASSED: ETH WAN is up, mode is 100M HALF"
+        ;;
+        3)
+        echo "PASSED: ETH WAN is up, mode is 1000M HALF"
+        ;;
+        4)
+        echo "PASSED: ETH WAN is up, mode is 10M FULL"
+        ;;
+        5)
+        echo "PASSED: ETH WAN is up, mode is 100M FULL"
+        ;;
+        6)
+        echo "PASSED: ETH WAN is up, mode is 1000M FULL"
+        ;;
+        7)
+        echo "PASSED: ETH WAN is up, mode is TEST"
+        ;;
+        8)
+        echo "PASSED: ETH WAN is up, mode is 2500M HALF"
+        ;;
+        9)
+        echo "PASSED: ETH WAN is up, mode is 2500M FULL"
+        ;;
+        10)
+        echo "PASSED: ETH WAN is up, mode is 5000M HALF"
+        ;;
+        11)
+        echo "PASSED: ETH WAN is up, mode is 5000M FULL"
+        ;;
+        12)
+        echo "PASSED: ETH WAN is up, mode is 10000M HALF"
+        ;;
+        13)
+        echo "PASSED: ETH WAN is up, mode is 10000M FULL"
+        ;;
+    esac
+else
+    echo "PASSED: ETH WAN is down"
+fi

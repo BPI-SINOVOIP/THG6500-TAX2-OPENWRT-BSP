@@ -1,0 +1,35 @@
+#!/bin/sh
+
+old_interface=`echo $1 | awk -F',' '{print $1}'`
+old_acsip=`echo $1 | awk -F',' '{print $2}'`
+is_old_interface=`uci get network.$old_interface`
+old_acsip=$(echo ${old_acsip} | awk -F'[/:]' '{print $4}')
+
+new_interface=`uci get easycwmp.@local[0].interface`
+new_acsip=`uci get easycwmp.@acs[0].url`
+is_new_interface=`uci get network.$new_interface`
+new_acsip=$(echo ${new_acsip} | awk -F'[/:]' '{print $4}')
+
+logger -t test_tr069  "old_interface=$old_interface old_acsip=$old_acsip is_old_interface=$is_old_interface \
+new_interface=$new_interface new_acsip=$new_acsip is_new_interface=$is_new_interface "
+
+[ "$old_interface" = "$new_interface" -a "$old_acsip" = "$new_acsip"  ] && return 0
+
+[ "$old_acsip" != "$new_acsip" -a "$old_interface" = "$new_interface" ] && {
+        [ "$is_new_interface" = "interface" ] && {
+                ubus call network.interface.${new_interface} down
+                ubus call network.interface.${new_interface} up
+        }
+}
+
+[ "$old_interface" != "$new_interface" ] && {
+        [ "$is_old_interface" = "interface" ] && {
+                ubus call network.interface.${old_interface} down
+                ubus call network.interface.${old_interface} up
+        }
+
+        [ "$is_new_interface" = "interface" ] && {
+                ubus call network.interface.${new_interface} down
+                ubus call network.interface.${new_interface} up
+        }
+}

@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+#udp client software
+#Copyright (C) 2019 PIVA SOFTWARE <www.pivasoftware.com> - All Rights Reserved
+#Author:AHMED Sahnoun <ahmed.sahnoun@pivasoftware.com>
+#This software is under the terms of the commercial license attached with this source code
+
+START=90
+
+USE_PROCD=1
+PROG="/usr/sbin/tr069_udpecho_clientd"
+
+start_service() {
+	local DiagnosticsState=`uci -q get tr069_udpecho_client.udpclient.UDPEchoDiagnosticsState`
+	local EnableIndividualPacketResults=`uci -q get tr069_udpecho_client.udpclient.EnableIndividualPacketResults`
+
+	if [[ "$DiagnosticsState" == "Requested"  && "$EnableIndividualPacketResults" == 1 ]]; then
+		procd_open_instance
+		procd_set_param command "$PROG"
+		procd_set_param respawn "3" "7" "0"
+		procd_close_instance
+	fi
+	local DiagnosticsState=`uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state get easycwmp.@local[0].ServerSelectionDiagnosticsState`
+	if [ "$DiagnosticsState" == "Requested" ]; then
+		procd_open_instance
+		procd_set_param command "$PROG"
+		procd_set_param respawn "3" "7" "0"
+		procd_close_instance
+	fi
+}
+
+boot() {
+	start
+}
+
+reload_service() {
+	logger -p crit -t "tr069_udpecho_clientd" "reloading service()"
+	stop
+	start
+}
+
+service_triggers() {
+	procd_add_reload_trigger tr069_udpecho_client
+}

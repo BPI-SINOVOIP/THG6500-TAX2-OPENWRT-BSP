@@ -1,0 +1,12 @@
+diff -uprN a/net/wireless/chan.c b/net/wireless/chan.c
+--- a/net/wireless/chan.c	2023-06-19 14:41:14.277100575 +0800
++++ b/net/wireless/chan.c	2023-06-19 14:44:28.057094634 +0800
+@@ -891,7 +891,7 @@ static bool cfg80211_secondary_chans_ok(
+ 	for (freq = start_freq; freq <= end_freq; freq += MHZ_TO_KHZ(20)) {
+ 		c = ieee80211_get_channel_khz(wiphy, freq);
+ 		if (!c || c->flags & prohibited_flags)
+-			return false;
++			return true;
+ 	}
+ 
+ 	return true;

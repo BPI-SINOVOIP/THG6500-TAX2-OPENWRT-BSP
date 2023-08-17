@@ -1,0 +1,29 @@
+diff -aur old/arch/arm/boot/compressed/head.S new/arch/arm/boot/compressed/head.S
+--- old/arch/arm/boot/compressed/head.S	2022-08-25 17:38:24.000000000 +0800
++++ new/arch/arm/boot/compressed/head.S	2022-11-11 13:44:13.285930192 +0800
+@@ -268,7 +268,13 @@
+ 		 * of this range.
+ 		 */
+ 		mov	r4, pc
++#if (defined CONFIG_TRI_LSW)
++		/* 2MB aligned */
++		lsr	r4, r4, #20
++		lsl	r4, r4, #20
++#else
+ 		and	r4, r4, #0xf8000000
++#endif /* CONFIG_TRI_LSW */
+ 		/* Determine final kernel image address. */
+ 		add	r4, r4, #TEXT_OFFSET
+ #else
+diff -aur old/arch/arm/Kconfig new/arch/arm/Kconfig
+--- old/arch/arm/Kconfig	2022-11-11 13:44:52.961785752 +0800
++++ new/arch/arm/Kconfig	2022-11-11 13:42:07.146389402 +0800
+@@ -321,7 +321,7 @@
+ 	select ARCH_SPARSEMEM_ENABLE
+ 	select ARCH_SELECT_MEMORY_MODEL
+ 	select ARM_HAS_SG_CHAIN
+-	select ARM_PATCH_PHYS_VIRT
++	imply ARM_PATCH_PHYS_VIRT
+ 	select AUTO_ZRELADDR
+ 	select TIMER_OF
+ 	select COMMON_CLK

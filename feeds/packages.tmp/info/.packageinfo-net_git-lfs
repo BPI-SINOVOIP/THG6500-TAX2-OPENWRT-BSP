@@ -1,0 +1,26 @@
+Source-Makefile: feeds/packages/net/git-lfs/Makefile
+Build-Depends: golang/host
+
+Package: git-lfs
+Version: 3.0.1-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64) +git
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Git Large File Storage
+Maintainer: Jan Pavlinec <jan.pavlinec1@gmail.com>
+Source: git-lfs-3.0.1.tar.gz
+License: MIT
+LicenseFiles: LICENSE.md
+Type: ipkg
+Description:   Git Large File Storage (LFS) replaces large files such as audio samples,
+  videos, datasets, and graphics with text pointers inside Git, while storing
+  the file contents on a remote server like GitHub.com or GitHub Enterprise.
+https://git-lfs.github.com
+Jan Pavlinec <jan.pavlinec1@gmail.com>
+@@
+
+

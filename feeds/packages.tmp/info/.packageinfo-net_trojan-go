@@ -1,0 +1,26 @@
+Source-Makefile: feeds/packages/net/trojan-go/Makefile
+Build-Depends: golang/host
+
+Package: trojan-go
+Submenu: Web Servers/Proxies
+Version: 0.10.6-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64) +ca-bundle
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: A Trojan proxy written in Go
+Maintainer: Tianling Shen <cnsztl@immortalwrt.org>
+Source: trojan-go-0.10.6.tar.gz
+License: GPL-3.0-only
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   Trojan features multiple protocols over TLS to avoid both
+  active/passive detections and ISP QoS limitations.
+https://p4gefau1t.github.io/trojan-go/
+Tianling Shen <cnsztl@immortalwrt.org>
+@@
+
+

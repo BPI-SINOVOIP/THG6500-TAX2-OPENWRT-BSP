@@ -1,0 +1,28 @@
+diff -aur old/arch/arm/kernel/bios32.c new/arch/arm/kernel/bios32.c
+--- old/arch/arm/kernel/bios32.c	2022-08-25 17:38:24.000000000 +0800
++++ new/arch/arm/kernel/bios32.c	2022-11-17 11:00:17.020483053 +0800
+@@ -529,6 +529,10 @@
+ 	}
+ }
+ 
++#ifdef CONFIG_ARCH_TRIDUCTOR
++EXPORT_SYMBOL(pci_common_init_dev);
++#endif
++
+ #ifndef CONFIG_PCI_HOST_ITE8152
+ void pcibios_set_master(struct pci_dev *dev)
+ {
+diff -aur old/kernel/kallsyms.c new/kernel/kallsyms.c
+--- old/kernel/kallsyms.c       2022-11-17 14:18:41.918820819 +0800
++++ new/kernel/kallsyms.c       2022-11-17 14:18:14.174451815 +0800
+@@ -185,6 +185,10 @@
+        return module_kallsyms_lookup_name(name);
+ }
+
++#ifdef CONFIG_ARCH_TRIDUCTOR
++EXPORT_SYMBOL_GPL(kallsyms_lookup_name);
++#endif
++
+ int kallsyms_on_each_symbol(int (*fn)(void *, const char *, struct module *,
+                                      unsigned long),
+                            void *data)

@@ -1,0 +1,50 @@
+diff -uprN a/src/drivers/driver_nl80211_event.c b/src/drivers/driver_nl80211_event.c
+--- a/src/drivers/driver_nl80211_event.c	2023-08-12 09:33:32.396741757 +0800
++++ b/src/drivers/driver_nl80211_event.c	2023-08-12 09:35:29.000000000 +0800
+@@ -2860,8 +2860,15 @@ static void nl80211_detect_sta_event(str
+ 	u8 *src_addr;
+ 	u8 channel;
+ 	s8 signal;
++  s32 rx_pkts;
+ 	char ubus_buf[1024] = {0};
+ 
++  struct nlattr *stats[NL80211_STA_INFO_MAX + 1];
++    static struct nla_policy stats_policy[NL80211_STA_INFO_MAX + 1] = {
++      [NL80211_STA_INFO_RX_PACKETS] = { .type = NLA_U32 },
++      [NL80211_STA_INFO_SIGNAL] = { .type = NLA_U8 },
++    };
++
+ 	if (!tb[NL80211_ATTR_MAC] ||
+ 		!tb[NL80211_ATTR_WIPHY_FREQ] ||
+ 		!tb[NL80211_STA_INFO_SIGNAL])
+@@ -2869,11 +2876,26 @@ static void nl80211_detect_sta_event(str
+ 
+ 	src_addr = nla_data(tb[NL80211_ATTR_MAC]);
+ 	channel = nla_get_u8(tb[NL80211_ATTR_WIPHY_FREQ]);
+-	signal = nla_get_u8(tb[NL80211_STA_INFO_SIGNAL]) - 100;
+ 
+-	wpa_printf(MSG_INFO, "nl80211: sta mac: "
+-				MACSTR " channel:%d signal:%d",
+-				MAC2STR(src_addr), channel, signal);
++	if (!tb[NL80211_ATTR_STA_INFO]) {
++		return;
++	}
++  
++	if (nla_parse_nested(stats, NL80211_STA_INFO_MAX,
++			     tb[NL80211_ATTR_STA_INFO],
++			     stats_policy)) {
++		return;
++	}  
++	if (stats[NL80211_STA_INFO_RX_PACKETS])
++		rx_pkts =
++			nla_get_u32(stats[NL80211_STA_INFO_RX_PACKETS]);
++
++  if (stats[NL80211_STA_INFO_SIGNAL])
++		signal = nla_get_u8(stats[NL80211_STA_INFO_SIGNAL]) - 100;
++
++	wpa_printf(MSG_DEBUG, "nl80211: sta mac: "
++				MACSTR " channel:%d signal:%d rx_pkts:%d",
++				MAC2STR(src_addr), channel, signal, rx_pkts);
+ 
+ 	sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=unassoc_sta\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\",\"CHANNEL=%d\",\"SIGNAL=%d\"]}'", MAC2STR(src_addr), channel, signal);
+ 	system(ubus_buf);

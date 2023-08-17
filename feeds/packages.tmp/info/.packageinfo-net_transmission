@@ -1,0 +1,92 @@
+Source-Makefile: feeds/packages/net/transmission/Makefile
+Build-Depends: !BUILD_NLS:libiconv
+
+Package: transmission-daemon
+Submenu: BitTorrent
+Version: 3.00-18
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcurl +libevent2 +libminiupnpc +libnatpmp +libpthread +librt +zlib +LIBCURL_NOSSL:libmbedtls +LIBCURL_GNUTLS:libmbedtls +BUILD_NLS:libiconv-full
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: BitTorrent client
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Require-User: transmission=224:transmission=224
+Source: transmission-3.00.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  Transmission is a simple BitTorrent client.
+ It features a very simple, intuitive interface
+ on top on an efficient, cross-platform back-end.
+ This package contains the daemon itself.
+https://www.transmissionbt.com
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+Package: transmission-cli
+Submenu: BitTorrent
+Version: 3.00-18
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcurl +libevent2 +libminiupnpc +libnatpmp +libpthread +librt +zlib +LIBCURL_NOSSL:libmbedtls +LIBCURL_GNUTLS:libmbedtls +BUILD_NLS:libiconv-full
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: BitTorrent client (utilities)
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: transmission-3.00.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  CLI utilities for transmission.
+https://www.transmissionbt.com
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+Package: transmission-remote
+Submenu: BitTorrent
+Version: 3.00-18
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcurl +libevent2 +libminiupnpc +libnatpmp +libpthread +librt +zlib +LIBCURL_NOSSL:libmbedtls +LIBCURL_GNUTLS:libmbedtls +BUILD_NLS:libiconv-full
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: BitTorrent client (remote)
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: transmission-3.00.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  CLI remote interface for transmission.
+https://www.transmissionbt.com
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+Package: transmission-web
+Submenu: BitTorrent
+Version: 3.00-18
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +transmission-daemon
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: BitTorrent client (webinterface)
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Source: transmission-3.00.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  Webinterface resources for transmission.
+https://www.transmissionbt.com
+Daniel Golle <daniel@makrotopia.org>
+@@
+
+

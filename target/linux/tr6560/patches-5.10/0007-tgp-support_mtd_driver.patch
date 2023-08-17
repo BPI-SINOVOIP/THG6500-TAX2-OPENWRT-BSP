@@ -1,0 +1,8 @@
+diff -Naru a/drivers/mtd/Makefile b/drivers/mtd/Makefile
+--- a/drivers/mtd/Makefile	2022-12-12 18:34:30.257612969 +0800
++++ b/drivers/mtd/Makefile	2022-12-12 18:35:24.298815363 +0800
+@@ -37,3 +37,4 @@
+ 
+ # Composite drivers must be loaded last
+ obj-y				+= composite/
++obj-$(CONFIG_MTD_TRIDUCTOR_NAND)	+= triductor/

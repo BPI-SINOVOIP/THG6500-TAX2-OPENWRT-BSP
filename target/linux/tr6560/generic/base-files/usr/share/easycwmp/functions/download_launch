@@ -1,0 +1,334 @@
+#!/bin/sh
+# Copyright (C) 2019 PIVA Software <www.pivasoftware.com>
+# 	Author: AHMED Sahnoun <ahmed.sahnoun@pivasoftware.com>
+
+DOWNLOAD_DIR="/tmp/easycwmp_downdiagnostics"
+DOWNLOAD_FILE="/var/obuspa/download_usp"
+
+[ "$1" != "run" -a "$1" != "stop" -a "$1" != "usp" ] && return
+
+UCI_GET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state get"
+UCI_SET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state set"
+
+download_get() {
+	local val=`$UCI_GET_VARSTATE $1`
+	echo ${val:-$2}
+}
+
+download_easycwmp() {
+	local i res er start end IPAddressUsed
+	[ "`$UCI_GET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsState`" != "Requested" ] && return
+	local dw_url=`download_get easycwmp.@local[0].DownloadURL`
+	local MeasurementInterval=`download_get easycwmp.@local[0].DownloadTimeBasedTestMeasurementInterval`
+	local ProtocolVersion=`download_get easycwmp.@local[0].DownloadProtocolVersion`
+	local Interface=`download_get easycwmp.@local[0].DownloadInterface`
+	local TestDuration=`download_get easycwmp.@local[0].DownloadTimeBasedTestDuration`
+	
+	[ "$dw_url" = "" ] && return
+	download_launch
+	[ "$state" != "Complete" ] && { 
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsState="$state";
+	event_dignostic
+	return; }
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsROMTime="$outROMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsBOMTime="$outBOMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsEOMTime="$outEOMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsTCPOpenRequestTime="$outTCPOpenRequestTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsTCPOpenResponseTime="$outTCPOpenResponseTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsTotalBytesReceived="$Totalbytes";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsTestBytesReceived="$testbyte";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsResultTotalBytesReceived="$resultBytes";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsResultTime="$ResultTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsResultTotalBytesSent="$IncTotalBytesSent";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsResultTestBytesReceived="$IncTestBytesReceived";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsTotalBytesSent="$TotalbytesSent";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsIPAddressUsed="$IPAddressUsed";
+	$UCI_SET_VARSTATE easycwmp.@local[0].DownloadDiagnosticsState="$state";
+	event_dignostic
+}
+
+download_usp() {
+	local i res er start end IPAddressUsed
+	local Interface=`awk -F'[=: ]' '/Interface:/ {print $2}' $DOWNLOAD_FILE`
+	local dw_url=`awk -F 'DownloadURL:' '/DownloadURL:/ {print $2}' $DOWNLOAD_FILE`
+	local TestDuration=`awk -F'[=: ]' '/TimeBasedTestDuration:/ {print $2}' $DOWNLOAD_FILE`
+	local MeasurementInterval=`awk -F'[=: ]' '/TimeBasedTestMeasurementInterval:/ {print $2}' $DOWNLOAD_FILE`
+	local ProtocolVersion=`awk -F'[=: ]' '/ProtocolVersion:/ {print $2}' $DOWNLOAD_FILE`
+	
+	rm -rf $DOWNLOAD_FILE
+	[ "$dw_url" = "" ] && return
+	download_launch
+	echo "Status:$state" 2>&1 >> $DOWNLOAD_FILE
+	[ "$state" != "Complete" ] && { 
+	return; }
+	echo "IPAddressUsed:$IPAddressUsed" 2>&1 >> $DOWNLOAD_FILE
+	echo "ROMTime:$outROMTime" 2>&1 >> $DOWNLOAD_FILE
+	echo "BOMTime:$outBOMTime" 2>&1 >> $DOWNLOAD_FILE
+	echo "EOMTime:$outEOMTime" 2>&1 >> $DOWNLOAD_FILE
+	echo "TestBytesReceived:$testbyte" 2>&1 >> $DOWNLOAD_FILE
+	echo "TotalBytesReceived:$Totalbytes" 2>&1 >> $DOWNLOAD_FILE
+	echo "TotalBytesSent:$TotalbytesSent" 2>&1 >> $DOWNLOAD_FILE
+	echo "TestBytesReceivedUnderFullLoading:$testbyte" 2>&1 >> $DOWNLOAD_FILE
+	echo "TotalBytesReceivedUnderFullLoading:$testbyte" 2>&1 >> $DOWNLOAD_FILE
+	echo "TotalBytesSentUnderFullLoading:$TotalbytesSen" 2>&1 >> $DOWNLOAD_FILE
+	echo "TCPOpenRequestTime:$outTCPOpenRequestTime" 2>&1 >> $DOWNLOAD_FILE
+	echo "TCPOpenResponseTime:$outTCPOpenResponseTime" 2>&1 >> $DOWNLOAD_FILE
+
+	ind=$(expr index "$ResultTime" ",")
+	i=0
+	while [ $ind != "0" ]; do
+		let i++
+		StartTime=${ResultTime:0:$ind}
+		ResultTime=${ResultTime:$ind}
+		StartTime=${StartTime//,/}
+
+		ind=$(expr index "$IncTestBytesReceived" ",")
+		TestBytesReceived=${IncTestBytesReceived:0:$ind - 1}
+		IncTestBytesReceived=${IncTestBytesReceived:$ind}
+
+		ind=$(expr index "$resultBytes" ",")
+		TotalBytesReceived=${resultBytes:0:$ind - 1}
+		resultBytes=${resultBytes:$ind}
+
+		ind=$(expr index "$IncTotalBytesSent" ",")
+		TotalBytesSent=${IncTotalBytesSent:0:$ind - 1}
+		IncTotalBytesSent=${IncTotalBytesSent:$ind}
+
+		echo "IncrementalResult.$i.TestBytesReceived:$TestBytesReceived" 2>&1 >> $DOWNLOAD_FILE
+		echo "IncrementalResult.$i.TotalBytesReceived:$TotalBytesReceived" 2>&1 >> $DOWNLOAD_FILE
+		echo "IncrementalResult.$i.TotalBytesSent:$TotalBytesSent" 2>&1 >> $DOWNLOAD_FILE
+		echo "IncrementalResult.$i.StartTime:$StartTime" 2>&1 >> $DOWNLOAD_FILE
+		ind=$(expr index "$ResultTime" ",")
+		EndTime=${ResultTime:0:$ind - 1}
+		[ "$ind" = "0" ] && EndTime=$ResultTime
+		echo "IncrementalResult.$i.EndTime:$EndTime" 2>&1 >> $DOWNLOAD_FILE
+	done
+}
+
+download_launch() {
+	[ "$TestDuration" = "0" ] && TestDuration=""
+	[ "$MeasurementInterval" = "0" ] && MeasurementInterval=""
+	if [ "$ProtocolVersion" = "IPv4" ]
+	then
+		ProtocolVersion="-4"
+	elif [ "$ProtocolVersion" = "IPv6" ]
+	then
+		ProtocolVersion="-6"
+	else
+		ProtocolVersion=""
+	fi
+
+	[ -n "$TestDuration" ] &&  timeout="-m $TestDuration"
+	rm -rf $DOWNLOAD_DIR
+	mkdir -p $DOWNLOAD_DIR
+	[ "$Interface" != "" ] && {
+		ubusInterface=`echo {\"interface\":\"$Interface\"}`
+		device=`ubus call "network.interface" "status" $ubusInterface|jsonfilter -e @.device`
+		[ "$ProtocolVersion" = "-6" ] && IPAddressUsed=`ubus call "network.interface" "status" $ubusInterface |jsonfilter -e '@["ipv6-address"][0].address'`
+		[ "$ProtocolVersion" = "-4" ] && IPAddressUsed=`ubus call "network.interface" "status" $ubusInterface |jsonfilter -e '@["ipv4-address"][0].address'`
+	}
+	[ "$device" = "" ] && device=`awk '{ if($2 == "00000000") print $1;}' /proc/net/route`
+
+	format="size_download: %{size_download}\ntime_appconnect: %{time_appconnect}\n
+	time_connect: %{time_connect}\n time_namelookup: %{time_namelookup}\n
+	time_pretransfer: %{time_pretransfer}\ntime_redirect: %{time_redirect}\n
+	time_starttransfer: %{time_starttransfer}\ntime_total: %{time_total}\n"
+
+	ubusname=`echo {\"name\":\"$device\"}`
+	Totalbytestart=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.rx_bytes`
+	Totaltxbytestart=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.tx_bytes`
+	curl_cmd="curl -w @- --connect-timeout 30 $Protocol --interface $device $timeout $dw_url --output  /dev/null"
+	if [ -n "$MeasurementInterval"  ] && [ -n "$TestDuration"  ]
+	then
+		n=$MeasurementInterval
+		lastbyte=$Totalbytestart;
+		lastFileSize=0;
+		lasttxbyte=$Totaltxbytestart;
+		ResultTime=`date +%Y-%m-%dT%T.%6N%z`
+		ResultTime=${ResultTime:0:29}:${ResultTime:29}
+		StartTime=`date +"%s.%6N"`
+		echo "$format" | $curl_cmd > $DOWNLOAD_DIR/res 2>&1 &
+		while [ $n -le $TestDuration ];do
+			log "while [ $n -le $TestDuration ];do"
+			n=`expr $n + $MeasurementInterval`
+			sleep $MeasurementInterval;
+			nb_rx_bytes=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.rx_bytes`
+			nb_tx_bytes=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.tx_bytes`
+			FileSize=`cat $DOWNLOAD_DIR/res | grep "size_download" | awk '{print $2}'`
+			[ "$FileSize" = "" ] && {
+				res=`cat $DOWNLOAD_DIR/res`
+				FileSize=`echo $res |tail - n 1 |awk '{print $(NF-8)}'`
+				k=`expr index $FileSize k`
+				m=`expr index $FileSize M`
+				[ "$k" != "0" ] && {
+					FileSize=${FileSize//k/}
+					FileSize=$(echo $FileSize | awk '{printf "%.0f", $1  * 1024 }')
+					}
+				[ "$m" != "0" ] && {
+					FileSize=${FileSize//M/}
+					FileSize=$(echo $FileSize | awk '{printf "%.0f", $1  * 1048576 }')
+				}
+			}
+			# FileSize=`du -sk $DOWNLOAD_DIR/diagnostic`
+			# FileSize=${FileSize%$DOWNLOAD_DIR/diagnostic}
+			# FileSize=`expr $FileSize \* 1024`
+			IncTestbyte=`expr $FileSize - $lastFileSize`
+			lastFileSize=$FileSize
+			txbytes=`expr $nb_tx_bytes - $lasttxbyte`
+			bytes=`expr $nb_rx_bytes - $lastbyte`
+			if [ -n "$resultBytes"  ] 
+			then
+				resultBytes=$resultBytes,$bytes
+				IncTotalBytesSent=$IncTotalBytesSent,$txbytes
+				IncTestBytesReceived=$IncTestBytesReceived,$IncTestbyte
+
+			else
+				resultBytes=$bytes
+				IncTotalBytesSent=$txbytes
+				IncTestBytesReceived=$IncTestbyte
+			fi
+			lastbyte=$nb_rx_bytes
+			lasttxbyte=$nb_tx_bytes
+			Time=`date +%Y-%m-%dT%T.%6N%z`
+			Time=${Time:0:29}:${Time:29}
+			ResultTime=$ResultTime,$Time
+		done
+		rest=`expr $TestDuration % $MeasurementInterval`
+		[ $rest != 0 ] && {
+			sleep $rest;
+			nb_rx_bytes=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.rx_bytes`
+			Time=`date +%Y-%m-%dT%T.%6N%z`
+			Time=${Time:0:29}:${Time:29}
+			# FileSize=`du -sk $DOWNLOAD_DIR/diagnostic`
+			# FileSize=${FileSize%$DOWNLOAD_DIR/diagnostic}
+			FileSize=`cat $DOWNLOAD_DIR/res | grep "size_download" | awk '{print $2}'`
+			[ "$FileSize" = "" ] && {
+				res=`cat $DOWNLOAD_DIR/res`
+				FileSize=`echo $res |tail - n 1 |awk '{print $(NF-8)}'`
+				k=`expr index $FileSize k`
+				m=`expr index $FileSize M`
+				[ "$k" != "0" ] && {
+					FileSize=${FileSize//k/}
+					FileSize=$(echo $FileSize | awk '{printf "%.0f", $1  * 1024 }')
+					}
+				[ "$m" != "0" ] && {
+					FileSize=${FileSize//M/}
+					FileSize=$(echo $FileSize | awk '{printf "%.0f", $1  * 1048576 }')
+				}
+			}
+			FileSize=`expr $FileSize - $lastFileSize`
+			bytes=`expr $nb_rx_bytes - $lastbyte`
+			resultBytes=$resultBytes,$bytes
+			ResultTime=$ResultTime,$Time
+			IncTotalBytesSent=$IncTotalBytesSent,$txbytes
+			IncTestBytesReceived=$IncTestBytesReceived,$FileSize
+		}
+	res=`cat $DOWNLOAD_DIR/res`
+	else
+		StartTime=`date +"%s.%6N"`
+		echo "$format" | $curl_cmd > $DOWNLOAD_DIR/res 2>&1
+	fi
+	Totalbytestop=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.rx_bytes`
+	Totaltxbytestop=`ubus call "network.device" "status" $ubusname |jsonfilter -e @.statistics.tx_bytes`
+	er=`echo "$res" | grep "Connection timed out"`
+	resCmd="cat $DOWNLOAD_DIR/res"
+	res=`$resCmd`
+	testbyte=`$resCmd | grep "size_download" | awk '{print $2}'`
+	time_appconnect=`$resCmd | grep "time_appconnect" | awk '{print $2}'`
+	time_connect=`$resCmd | grep "time_connect" | awk '{print $2}'`
+	time_pretransfer=`$resCmd | grep "time_pretransfer" | awk '{print $2}'`
+	time_starttransfer=`$resCmd | grep "time_starttransfer" | awk '{print $2}'`
+	time_total=`$resCmd | grep "time_total" | awk '{print $2}'`
+	testbyte=${testbyte%.*}
+	TCPOpenRequestTime=$(echo $StartTime $time_appconnect | awk '{printf "%.6f", $1 + $2}')
+	TCPOpenResponseTime=$(echo $StartTime $time_connect | awk '{printf "%.6f", $1 + $2}')
+	ROMTime=$(echo $StartTime $time_pretransfer | awk '{printf "%.6f", $1 + $2}')
+	BOMTime=$(echo $StartTime $time_starttransfer | awk '{printf "%.6f", $1 + $2}')
+	EOMTime=$(echo $StartTime $time_total | awk '{printf "%.6f", $1 + $2}')
+
+	[ -n "$er" ]  && { 
+			state=Error_Timeout;
+		rm -rf $DOWNLOAD_DIR;
+		return; }
+	er=`echo "$res" | grep "Access denied"`
+	[ -n "$er" ]  && {
+		state=Error_LoginFailed;
+		rm -rf $DOWNLOAD_DIR;
+		return; }
+	er=`echo "$res" | grep "Bad password"`
+	[ -n "$er" ]  && { 
+		state=Error_PasswordRequestFailed;
+		rm -rf $DOWNLOAD_DIR;
+		return; }
+	er=`echo "$res" | grep "Non-specific error"`
+	[ -n "$er" ]  && { 
+		state=Error_Other;
+		rm -rf $DOWNLOAD_DIR;
+		return; }
+
+	er=`echo "$res" | grep "Could not resolve host"`
+	[ -n "$er" ] && {
+		state=Error_InitConnectionFailed;
+		rm -rf $DOWNLOAD_DIR;
+		return; }
+	er=`echo "$res" | grep "Failed to connect"`
+	if [ -n "$er" ] 
+	then
+		state=Error_CannotResolveHostName;
+		rm -rf $DOWNLOAD_DIR;
+	else
+		TotalbytesSent=`expr $Totaltxbytestop - $Totaltxbytestart`
+		Totalbytes=`expr $Totalbytestop - $Totalbytestart`
+		state=Complete;
+		separatorindex=`expr index $BOMTime .`
+		BOMTimemicroSec=${BOMTime:$separatorindex}
+		BOMTimeSec=${BOMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $ROMTime .`
+		ROMTimemicroSec=${ROMTime:$separatorindex}
+		ROMTimeSec=${ROMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $EOMTime .`
+		EOMTimemicroSec=${EOMTime:$separatorindex}
+		EOMTimeSec=${EOMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $TCPOpenRequestTime .`
+		TCPOpenRequestTimemicroSec=${TCPOpenRequestTime:$separatorindex}
+		TCPOpenRequestTimeSec=${TCPOpenRequestTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $ROMTime .`
+		TCPOpenResponseTimemicroSec=${TCPOpenResponseTime:$separatorindex}
+		TCPOpenResponseTimeSec=${TCPOpenResponseTime:0:$(($separatorindex-1))}
+		outBOMTime=`date +"%Y-%m-%dT%H:%M:%S.$BOMTimemicroSec%z" -d @$BOMTimeSec`
+		outROMTime=`date +"%Y-%m-%dT%H:%M:%S.$ROMTimemicroSec%z" -d @$ROMTimeSec`
+		outEOMTime=`date +"%Y-%m-%dT%H:%M:%S.$EOMTimemicroSec%z" -d @$EOMTimeSec`
+		outTCPOpenRequestTime=`date +"%Y-%m-%dT%H:%M:%S.$TCPOpenRequestTimemicroSec%z" -d @$TCPOpenRequestTimeSec`
+		outTCPOpenResponseTime=`date +"%Y-%m-%dT%H:%M:%S.$TCPOpenResponseTimemicroSec%z" -d @$TCPOpenResponseTimeSec`
+		[ "$ROMTime" = "" ] && [ "$BOMTime" = "" ]  && [ "$EOMTime" = "" ] && { 
+			state="Error_Other"; 
+		}
+	fi
+	rm -rf $DOWNLOAD_DIR
+
+}
+
+
+event_dignostic() {
+	local e=1
+	local i=0
+	while [ "$e" != 0 -a $i -lt 3 ]; do	
+		ubus -t 1 call tr069 inform '{"event":"8 DIAGNOSTICS COMPLETE"}'
+		e=$?
+		[ "$e" != "0" ] && sleep 1;
+		let i++
+	done
+}
+
+download_stop() {
+	local pids=`ps aux | grep download_launch | grep -v grep | grep -v stop | awk '{print $2}'`
+	[ -z "$pids" ] && pids=`ps | grep download_launch | grep -v grep | grep -v stop | awk '{print $1}'`
+	if [ -n "$pids" ]; then
+		kill -9 $pids 2>/dev/null
+		$UCI_SET_VARSTATE easycwmp.@local[0].downloadDiagnosticsState=None
+	fi
+}
+
+[ "$1" == "usp" ] && { download_usp 2>/dev/null; exit 0; }
+[ "$1" == "run" ] && { download_easycwmp 2>/dev/null; exit 0; }
+[ "$1" == "stop" ] && download_stop 2>/dev/null

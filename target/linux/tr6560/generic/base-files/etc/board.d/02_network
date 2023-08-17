@@ -1,0 +1,40 @@
+
+. /lib/functions.sh
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+triductor_setup_interfaces()
+{
+	local board="$1"
+
+	case $board in
+	THG6400-TAC2)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan
+		;;
+	*)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" wan
+		;;
+	esac
+}
+
+triductor_setup_macs()
+{
+	local board="$1"
+	local lan_mac=""
+
+	case $board in
+	*)
+		lan_mac=$(nvram get mac)
+		[ -n "$lan_mac" ] && ucidef_set_interface_macaddr "lan" $lan_mac
+		[ -n "$lan_mac" ] && ucidef_set_interface_macaddr "wan" $(macaddr_add $lan_mac 1)
+		;;
+	esac
+}
+
+board_config_update
+board=$(board_name)
+triductor_setup_interfaces $board
+triductor_setup_macs $board
+board_config_flush
+
+exit 0

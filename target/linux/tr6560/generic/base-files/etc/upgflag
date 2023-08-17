@@ -1,0 +1,74 @@
+#!/bin/sh
+. /lib/functions.sh
+
+param=""
+
+find_char_mtd_part() {
+	local INDEX=$(find_mtd_index "$1")
+	local PREFIX=/dev/mtd
+
+	[ -d /dev/mtd ] && PREFIX=/dev/mtd/
+	echo "${INDEX:+$PREFIX$INDEX}"
+}
+
+flag="$(cat /proc/mtd | grep kernelA | wc -l)"
+UPG_DEV_CHAR=$(find_char_mtd_part upgflag)
+UPG_DEV=$(find_mtd_part upgflag)
+curval=`/sbin/uci -q get easycwmp.@device[0].software_version`
+bakval=`/sbin/uci -q get easycwmp.@device[0].backup_version`
+
+if [ "$1" = "get" ]; then
+	if [ $# -ne 2 ]; then
+		echo "count of getting upgflag's param is $# error(must be 2)!"
+		exit 0
+	fi
+	param=$2
+	if [ "$param" = "A" ]; then
+		if [ "$flag" = "0" ]; then
+			echo "A version=$curval" > /dev/console
+		elif [ "$flag" = "1" ]; then
+			echo "A version=$bakval" > /dev/console
+		fi
+	elif [ "$param" = "B" ]; then
+		if [ "$flag" = "0" ]; then
+			echo "B version=$bakval" > /dev/console
+		elif [ "$flag" = "1" ]; then
+			echo "B version=$curval" > /dev/console
+		fi
+	elif [ "$param" = "active" ]; then
+		if [ "$flag" = "0" ]; then
+			echo "partition of active version=A" > /dev/console
+		elif [ "$flag" = "1" ]; then
+			echo "partition of active version=B" > /dev/console
+		fi
+    fi
+elif [ "$1" = "switch" ]; then
+	if [ $# -ne 1 ]; then
+		echo "count of switching upgflag's param is $# error(must be 1)!"
+		exit 0
+	fi
+	if [ "$flag" = "0" ]; then
+		mtd erase ${UPG_DEV_CHAR}
+		echo B > ${UPG_DEV}
+		echo "Boot form B version"
+	elif [ "$flag" = "1" ]; then
+		mtd erase ${UPG_DEV_CHAR}
+		echo A > ${UPG_DEV}
+		echo "Boot form A version"
+	else
+		echo "dual-firmware startup error"
+		exit 0
+	fi
+	[ "$curval" != "$bakval" ] && { 
+		/sbin/uci -q set easycwmp.@device[0].software_version="$bakval"
+		/sbin/uci -q set easycwmp.@device[0].backup_version="$curval"
+		/sbin/uci -q commit easycwmp
+	}
+	sync
+	sleep 1
+	reboot
+else
+	echo "param format error (./upgflag get A/B/active or ./upgflag switch)!"
+	exit 0
+fi
+

@@ -1,0 +1,2980 @@
+diff -uprN a/hostapd/ctrl_iface.c b/hostapd/ctrl_iface.c
+--- a/hostapd/ctrl_iface.c	2022-11-15 16:24:45.208845701 +0800
++++ b/hostapd/ctrl_iface.c	2023-04-10 17:21:39.944365608 +0800
+@@ -67,6 +67,9 @@
+ #include "fst/fst_ctrl_iface.h"
+ #include "config_file.h"
+ #include "ctrl_iface.h"
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "connectivity_patch/connectivity_patch.h"
++#endif
+ #include "config_file.h"
+ 
+ 
+@@ -237,6 +240,10 @@ static int hostapd_ctrl_iface_wps_pin(st
+ 	} else
+ 		timeout = 0;
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	wps_procedure_state = WPS_CONTINUE;
++#endif
++
+ 	return hostapd_wps_add_pin(hapd, addr, txt, pin, timeout);
+ }
+ 
+@@ -508,6 +515,12 @@ static int hostapd_ctrl_iface_wps_ap_pin
+ 	char *pos;
+ 	const char *pin_txt;
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    /* */
++	if (hapd->wps == NULL)
++		return -1;
++#endif
++
+ 	pos = os_strchr(txt, ' ');
+ 	if (pos)
+ 		*pos++ = '\0';
+@@ -559,6 +572,12 @@ static int hostapd_ctrl_iface_wps_config
+ 	char *pos;
+ 	char *ssid, *auth, *encr = NULL, *key = NULL;
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    /* */
++	if (hapd->wps == NULL)
++		return -1;
++#endif
++
+ 	ssid = txt;
+ 	pos = os_strchr(txt, ' ');
+ 	if (!pos)
+@@ -3678,6 +3697,10 @@ static int hostapd_ctrl_iface_receive_pr
+ 	} else if (os_strcmp(buf, "WPS_PBC") == 0) {
+ 		if (hostapd_wps_button_pushed(hapd, NULL))
+ 			reply_len = -1;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    } else if (os_strcmp(buf, "WPS_GET_STATE") == 0) {
++        reply_len = hostapd_wps_get_state(reply,reply_size);
++#endif
+ 	} else if (os_strcmp(buf, "WPS_CANCEL") == 0) {
+ 		if (hostapd_wps_cancel(hapd))
+ 			reply_len = -1;
+diff -uprN a/hostapd/hostapd_cli.c b/hostapd/hostapd_cli.c
+--- a/hostapd/hostapd_cli.c	2022-11-15 16:24:45.208845701 +0800
++++ b/hostapd/hostapd_cli.c	2022-11-15 16:15:58.040861862 +0800
+@@ -476,6 +476,13 @@ static int hostapd_cli_cmd_wps_cancel(st
+ 	return wpa_ctrl_command(ctrl, "WPS_CANCEL");
+ }
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++static int hostapd_cli_cmd_get_state(struct wpa_ctrl *ctrl, int argc,
++				      char *argv[])
++{
++	return wpa_ctrl_command(ctrl, "WPS_GET_STATE");
++}
++#endif
+ 
+ #ifdef CONFIG_WPS_NFC
+ static int hostapd_cli_cmd_wps_nfc_tag_read(struct wpa_ctrl *ctrl, int argc,
+@@ -1587,6 +1594,9 @@ static const struct hostapd_cli_cmd host
+ 	  "= indicate button pushed to initiate PBC" },
+ 	{ "wps_cancel", hostapd_cli_cmd_wps_cancel, NULL,
+ 	  "= cancel the pending WPS operation" },
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	{ "wps_get_state", hostapd_cli_cmd_get_state, NULL, NULL},
++#endif
+ #ifdef CONFIG_WPS_NFC
+ 	{ "wps_nfc_tag_read", hostapd_cli_cmd_wps_nfc_tag_read, NULL,
+ 	  "<hexdump> = report read NFC tag with WPS data" },
+diff -uprN a/hostapd/Makefile b/hostapd/Makefile
+--- a/hostapd/Makefile	2022-11-15 16:24:45.208845701 +0800
++++ b/hostapd/Makefile	2023-04-10 17:21:57.379609208 +0800
+@@ -531,6 +531,10 @@ NEED_AES_UNWRAP=y
+ endif
+ 
+ ifdef CONFIG_WPS
++ifdef CONFIG_WPS2
++CFLAGS += -DCONFIG_WPS2
++endif
++
+ CFLAGS += -DCONFIG_WPS -DEAP_SERVER_WSC
+ OBJS += ../src/utils/uuid.o
+ OBJS += ../src/ap/wps_hostapd.o
+@@ -1287,6 +1291,26 @@ ifdef CONFIG_NO_TKIP
+ CFLAGS += -DCONFIG_NO_TKIP
+ endif
+ 
++ifdef CONFIG_CONNECTIVITY_PATCH
++CFLAGS += -DCONFIG_CONNECTIVITY_PATCH
++OBJS += ../src/connectivity_patch/connectivity_patch.o
++endif
++
++ifdef CONFIG_ONT_WPS_PATCH
++CFLAGS += -DCONFIG_ONT_WPS_PATCH
++endif
++
++ifdef CONFIG_CONNECTIVITY_11R_PATCH
++CFLAGS += -DCONFIG_CONNECTIVITY_11R_PATCH
++endif
++ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++CFLAGS += -DCONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++endif
++
++ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++CFLAGS += -D_PRE_WLAN_REPORT_WIFI_ABNORMAL
++endif
++
+ $(DESTDIR)$(BINDIR)/%: %
+ 	install -D $(<) $(@)
+ 
+diff -uprN a/src/ap/ap_config.c b/src/ap/ap_config.c
+--- a/src/ap/ap_config.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/ap_config.c	2022-11-15 16:15:58.028861862 +0800
+@@ -66,7 +66,11 @@ void hostapd_config_defaults_bss(struct
+ #endif /* CONFIG_WEP */
+ 	bss->eap_reauth_period = 3600;
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH  /* 多用户跑流情况下，建议关闭组播秘钥更新(时间设置超长), 防止eapol帧容易超时踢用户，没有相关认证项 */
++    bss->wpa_group_rekey = 60 * 24 * 60 * 60; /* 2个月 */
++#else
+ 	bss->wpa_group_rekey = 600;
++#endif
+ 	bss->wpa_gmk_rekey = 86400;
+ 	bss->wpa_deny_ptk0_rekey = PTK0_REKEY_ALLOW_ALWAYS;
+ 	bss->wpa_group_update_count = 4;
+@@ -1325,7 +1329,13 @@ static int hostapd_config_check_bss(stru
+ 			   "VHT (IEEE 802.11ac) with WEP is not allowed, disabling VHT capabilities");
+ 	}
+ #endif /* CONFIG_WEP */
+-
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	if (conf->ieee80211ac && conf->hw_mode == HOSTAPD_MODE_IEEE80211B) {
++		bss->disable_11ac = true;
++		wpa_printf(MSG_ERROR, "VHT (IEEE 802.11ac) in 11b mode is not "
++			   "allowed, disabling VHT capabilites");
++	}
++#endif /* CONFIG_CONNECTIVITY_PATCH */
+ 	if (full_config && conf->ieee80211ac && bss->wpa &&
+ 	    !(bss->wpa_pairwise & WPA_CIPHER_CCMP) &&
+ 	    !(bss->rsn_pairwise & (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP |
+diff -uprN a/src/ap/drv_callbacks.c b/src/ap/drv_callbacks.c
+--- a/src/ap/drv_callbacks.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/drv_callbacks.c	2022-11-15 16:15:58.032861862 +0800
+@@ -712,7 +712,11 @@ skip_wpa_check:
+ 
+ 	hostapd_set_sta_flags(hapd, sta);
+ 
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++    if (sta->auth_alg == WLAN_AUTH_FT)
++#else
+ 	if (reassoc && (sta->auth_alg == WLAN_AUTH_FT))
++#endif
+ 		wpa_auth_sm_event(sta->wpa_sm, WPA_ASSOC_FT);
+ #ifdef CONFIG_FILS
+ 	else if (sta->auth_alg == WLAN_AUTH_FILS_SK ||
+diff -uprN a/src/ap/hostapd.c b/src/ap/hostapd.c
+--- a/src/ap/hostapd.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/hostapd.c	2023-08-11 18:14:55.314977117 +0800
+@@ -55,6 +55,10 @@
+ #include "hs20.h"
+ #include "airtime_policy.h"
+ #include "wpa_auth_kay.h"
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "../connectivity_patch/connectivity_patch.h"
++#include "utils/wpa_debug.h"
++#endif
+ 
+ 
+ static int hostapd_flush_old_stations(struct hostapd_data *hapd, u16 reason);
+@@ -1692,6 +1696,10 @@ static int setup_interface(struct hostap
+ 		wpa_printf(MSG_DEBUG, "Previous country code %s, new country code %s",
+ 			   previous_country, country);
+ 
++#ifndef CONFIG_CONNECTIVITY_PATCH
++        /*
++         * 驱动不会上报channel update，包含在set country success中
++         */
+ 		if (os_strncmp(previous_country, country, 2) != 0) {
+ 			wpa_printf(MSG_DEBUG, "Continue interface setup after channel list update");
+ 			iface->wait_channel_update = 1;
+@@ -1700,6 +1708,7 @@ static int setup_interface(struct hostap
+ 					       iface, NULL);
+ 			return 0;
+ 		}
++#endif
+ 	}
+ 
+ 	return setup_interface2(iface);
+@@ -2098,7 +2107,7 @@ static int hostapd_setup_interface_compl
+ 			   hostapd_hw_mode_txt(iface->conf->hw_mode),
+ 			   iface->conf->channel, iface->freq);
+ 
+-#ifdef NEED_AP_MLME
++#if 0
+ 		/* Handle DFS only if it is not offloaded to the driver */
+ 		if (!(iface->drv_flags & WPA_DRIVER_FLAGS_DFS_OFFLOAD)) {
+ 			/* Check DFS */
+@@ -2157,6 +2166,13 @@ static int hostapd_setup_interface_compl
+ 		}
+ 	}
+ 
++#if (defined CONFIG_CONNECTIVITY_PATCH && (!defined CONFIG_SEC_ONLY))
++        if(wpa_driver_nl80211_set_max_sta(hapd->drv_priv, hapd->conf->max_num_sta)){
++            wpa_printf(MSG_ERROR, "Could not set max sta num to driver");
++			goto fail;
++        }
++#endif
++
+ 	if (iface->current_mode) {
+ 		if (hostapd_prepare_rates(iface, iface->current_mode)) {
+ 			wpa_printf(MSG_ERROR, "Failed to prepare rates "
+@@ -3329,6 +3345,16 @@ void hostapd_new_assoc_sta(struct hostap
+ 	} else
+ 		wpa_auth_sta_associated(hapd->wpa_auth, sta->wpa_sm);
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++			wpa_printf(MSG_DEBUG, "hostapd_new_assoc_sta: hapd->conf->wpa is %d",hapd->conf->wpa);
++			if (0 == hapd->conf->wpa)
++			{
++				wpa_printf(MSG_DEBUG, "hostapd_new_assoc_sta: hapd->conf->wpa is %d",hapd->conf->wpa);
++				wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_CONNECTED
++					MACSTR, MAC2STR(sta->addr));
++			}
++#endif
++
+ 	if (hapd->iface->drv_flags & WPA_DRIVER_FLAGS_WIRED) {
+ 		if (eloop_cancel_timeout(ap_handle_timer, hapd, sta) > 0) {
+ 			wpa_printf(MSG_DEBUG,
+diff -uprN a/src/ap/ieee802_1x.c b/src/ap/ieee802_1x.c
+--- a/src/ap/ieee802_1x.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/ieee802_1x.c	2022-11-15 16:15:58.028861862 +0800
+@@ -1462,6 +1462,9 @@ static void ieee802_1x_decapsulate_radiu
+ 		break;
+ 	case EAP_CODE_FAILURE:
+ 		os_strlcpy(buf, "EAP Failure", sizeof(buf));
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++        hapd->driver->sta_report(hapd->drv_priv, sta->addr, ETH_ALEN);
++#endif
+ 		break;
+ 	default:
+ 		os_strlcpy(buf, "unknown EAP code", sizeof(buf));
+diff -uprN a/src/ap/sta_info.c b/src/ap/sta_info.c
+--- a/src/ap/sta_info.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/sta_info.c	2023-08-15 09:55:04.746352854 +0800
+@@ -1271,9 +1271,28 @@ void ap_sta_set_authorized(struct hostap
+ 	u8 addr[ETH_ALEN];
+ 	u8 ip_addr_buf[4];
+ #endif /* CONFIG_P2P */
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char ubus_buf[1024] = {0};
++#endif
+ 
+ 	if (!!authorized == !!(sta->flags & WLAN_STA_AUTHORIZED))
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    {
++        /* Because of ProxySTA need, send disconnected message to monitor iface under wep or open encryto mode */
++	    wpa_printf(MSG_DEBUG, "ap_sta_set_authorized: authorized is %d, hapd->conf->wpa is %d.",
++                       authorized, hapd->conf->wpa );
++        if ((0 == authorized) && (0 == hapd->conf->wpa))
++        {
++            wpa_printf(MSG_DEBUG, "ap_sta_set_authorized: authorized is %d, hapd->conf->wpa is %d.",
++                       authorized, hapd->conf->wpa );
++            wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_DISCONNECTED
++				MACSTR, MAC2STR(sta->addr));
++        }
++#endif
+ 		return;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    }
++#endif
+ 
+ 	if (authorized)
+ 		sta->flags |= WLAN_STA_AUTHORIZED;
+@@ -1329,8 +1348,16 @@ void ap_sta_set_authorized(struct hostap
+ 			wpa_msg_no_global(hapd->msg_ctx_parent, MSG_INFO,
+ 					  AP_STA_CONNECTED "%s%s%s",
+ 					  buf, ip_addr, keyid_buf);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=sta\",\"STATUS=up\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\"]}'", MAC2STR(sta->addr));
++		system(ubus_buf);
++#endif
+ 	} else {
+ 		wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_DISCONNECTED "%s", buf);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=sta\",\"STATUS=down\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\"]}'", MAC2STR(sta->addr));
++		system(ubus_buf);
++#endif
+ 		hostapd_ubus_notify(hapd, "disassoc", sta->addr);
+ 
+ 		if (hapd->msg_ctx_parent &&
+diff -uprN a/src/ap/wpa_auth.c b/src/ap/wpa_auth.c
+--- a/src/ap/wpa_auth.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/wpa_auth.c	2022-11-15 16:15:58.028861862 +0800
+@@ -68,8 +68,13 @@ static void wpa_group_put(struct wpa_aut
+ static int ieee80211w_kde_len(struct wpa_state_machine *sm);
+ static u8 * ieee80211w_kde_add(struct wpa_state_machine *sm, u8 *pos);
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++static const u32 eapol_key_timeout_first = 1000; /* */
++static const u32 eapol_key_timeout_subseq = 2000; /* ms */
++#else
+ static const u32 eapol_key_timeout_first = 100; /* ms */
+ static const u32 eapol_key_timeout_subseq = 1000; /* ms */
++#endif
+ static const u32 eapol_key_timeout_first_group = 500; /* ms */
+ static const u32 eapol_key_timeout_no_retrans = 4000; /* ms */
+ 
+@@ -915,10 +920,16 @@ static int wpa_receive_error_report(stru
+ 		wpa_auth_logger(wpa_auth, sm->addr, LOGGER_INFO,
+ 				"ignore Michael MIC failure report since pairwise cipher is not TKIP");
+ 	} else {
++#ifdef CONFIG_CONNECTIVITY_PATCH
++        /* */
++        sm->dot11RSNAStatsTKIPRemoteMICFailures++;
++        wpa_auth->dot11RSNAStatsTKIPRemoteMICFailures++;
++#else
+ 		if (wpa_auth_mic_failure_report(wpa_auth, sm->addr) > 0)
+ 			return 1; /* STA entry was removed */
+ 		sm->dot11RSNAStatsTKIPRemoteMICFailures++;
+ 		wpa_auth->dot11RSNAStatsTKIPRemoteMICFailures++;
++#endif
+ 	}
+ 
+ 	/*
+@@ -2160,6 +2171,9 @@ SM_STATE(WPA_PTK, INITPSK)
+ #ifdef CONFIG_IEEE80211R_AP
+ 		os_memcpy(sm->xxkey, psk, PMK_LEN);
+ 		sm->xxkey_len = PMK_LEN;
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++        wpa_hexdump_key(MSG_DEBUG, "wpa_auth INITPSK xxkey", sm->xxkey, PMK_LEN);
++#endif
+ #endif /* CONFIG_IEEE80211R_AP */
+ 	}
+ #ifdef CONFIG_SAE
+diff -uprN a/src/ap/wpa_auth_ft.c b/src/ap/wpa_auth_ft.c
+--- a/src/ap/wpa_auth_ft.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/wpa_auth_ft.c	2023-08-03 10:43:39.221531781 +0800
+@@ -27,7 +27,9 @@
+ #include "wpa_auth.h"
+ #include "wpa_auth_i.h"
+ #include "pmksa_cache_auth.h"
+-
++#ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++#include "hostapd.h"
++#endif
+ 
+ #ifdef CONFIG_IEEE80211R_AP
+ 
+@@ -3067,6 +3069,13 @@ static int wpa_ft_process_auth_req(struc
+ 	size_t identity_len = 0, radius_cui_len = 0;
+ 	int use_sha384;
+ 	size_t pmk_r1_len, kdk_len;
++#ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++	u8 pmk_r0[PMK_LEN], pmk_r0_name[WPA_PMK_NAME_LEN];
++    struct hostapd_data *hapd_psk;
++	struct hostapd_wpa_psk *wpa_psk;
++	struct hostapd_bss_config *conf_psk;
++	u8 pmk_r1_local[PMK_LEN], pmk_r1_name_local[WPA_PMK_NAME_LEN];
++#endif
+ 
+ 	*resp_ies = NULL;
+ 	*resp_ies_len = 0;
+@@ -3140,6 +3149,52 @@ static int wpa_ft_process_auth_req(struc
+ 				   pmk_r1_name, use_sha384) < 0)
+ 		return WLAN_STATUS_UNSPECIFIED_FAILURE;
+ 
++#ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++    hapd_psk =(struct hostapd_data *)sm->ft_pending_cb_ctx;
++    conf_psk = hapd_psk->conf;
++    wpa_psk = conf_psk->ssid.wpa_psk;
++    /* 利用已有信息本地计算pmkr0 by */
++    wpa_derive_pmk_r0(wpa_psk->psk, PMK_LEN,
++		       conf->ssid, conf->ssid_len,
++		       mdie->mobility_domain, parse.r0kh_id, parse.r0kh_id_len,
++		       sm->addr, pmk_r0, pmk_r0_name, use_sha384);
++    wpa_hexdump_key(MSG_DEBUG, "FT: wpa_ft_process_auth_req xxkey",
++        wpa_psk->psk, PMK_LEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req r0kh_id",
++        parse.r0kh_id, FT_R0KH_ID_MAX_LEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req sta_addr",
++        sm->addr, ETH_ALEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req pmk_r0",
++        pmk_r0, PMK_LEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req pmk_r0_name",
++        pmk_r0_name, WPA_PMK_NAME_LEN);
++    /* 利用已有信息本地计算pmkr1 by */
++    wpa_derive_pmk_r1(pmk_r0, pmk_r1_len, pmk_r0_name,
++                   hapd_psk->own_addr, sm->addr,
++                   pmk_r1_local, pmk_r1_name_local);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req r1kh_id",
++        hapd_psk->own_addr, FT_R1KH_ID_LEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req s1kh_id",
++        sm->addr, ETH_ALEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req pmk_r1_local",
++        pmk_r1_local, PMK_LEN);
++    wpa_hexdump(MSG_DEBUG, "FT: wpa_ft_process_auth_req pmk_r1_name_local",
++        pmk_r1_name_local, WPA_PMK_NAME_LEN);
++    if (os_memcmp_const(pmk_r1_name_local, pmk_r1_name, WPA_PMK_NAME_LEN) == 0)
++    {
++        wpa_hexdump_key(MSG_DEBUG, "FT: Selected LOCAL PMK-R1", pmk_r1_local, PMK_LEN);
++        sm->pmk_r1_name_valid = 1;
++        os_memcpy(pmk_r1, pmk_r1_local, PMK_LEN);
++        os_memcpy(sm->pmk_r1_name, pmk_r1_name, WPA_PMK_NAME_LEN);
++        os_memcpy(sm->wpa_auth->addr, hapd_psk->own_addr, ETH_ALEN);
++        /* pairwise本应使用sta和r0kh关联时使用的，这里直接使用自身的 */
++        pairwise = conf_psk->rsn_pairwise;
++    }
++    if (1 != sm->pmk_r1_name_valid)
++    {
++        wpa_printf(MSG_DEBUG, "FT: No local PMKR1 now, need to pull");
++#endif
++
+ 	if (conf->ft_psk_generate_local &&
+ 	    wpa_key_mgmt_ft_psk(sm->wpa_key_mgmt)) {
+ 		if (wpa_ft_psk_pmk_r1(sm, pmk_r1_name, pmk_r1, &pairwise,
+@@ -3184,6 +3239,9 @@ pmk_r1_derived:
+ 	os_memcpy(sm->pmk_r1_name, pmk_r1_name, WPA_PMK_NAME_LEN);
+ 	os_memcpy(sm->pmk_r1, pmk_r1, pmk_r1_len);
+ 	sm->pmk_r1_len = pmk_r1_len;
++#ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++    }
++#endif
+ 
+ 	if (random_get_bytes(sm->ANonce, WPA_NONCE_LEN)) {
+ 		wpa_printf(MSG_DEBUG, "FT: Failed to get random data for "
+@@ -4749,6 +4807,12 @@ static int wpa_ft_generate_pmk_r1(struct
+ 		  .data = r1kh->id },
+ 		{ .type = FT_RRB_LAST_EMPTY, .len = 0, .data = NULL },
+ 	};
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++	wpa_hexdump(MSG_DEBUG, "FT: PMKR0", pmk_r0->pmk_r0,
++		    PMK_LEN);
++	wpa_hexdump(MSG_DEBUG, "FT: PMKR0Name", pmk_r0->pmk_r0_name,
++		    WPA_PMK_NAME_LEN);
++#endif
+ 
+ 	if (wpa_ft_new_seq(r1kh->seq, &f_seq) < 0) {
+ 		wpa_printf(MSG_DEBUG, "FT: Failed to get seq num");
+diff -uprN a/src/ap/wpa_auth_glue.c b/src/ap/wpa_auth_glue.c
+--- a/src/ap/wpa_auth_glue.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/wpa_auth_glue.c	2022-11-15 16:15:58.028861862 +0800
+@@ -266,6 +266,9 @@ static void hostapd_wpa_auth_psk_failure
+ 	wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_POSSIBLE_PSK_MISMATCH MACSTR,
+ 		MAC2STR(addr));
+ 	hostapd_ubus_notify(hapd, "key-mismatch", addr);
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++    hapd->driver->sta_report(hapd->drv_priv, addr, ETH_ALEN);
++#endif
+ }
+ 
+ 
+diff -uprN a/src/ap/wps_hostapd.c b/src/ap/wps_hostapd.c
+--- a/src/ap/wps_hostapd.c	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/wps_hostapd.c	2023-07-05 15:34:30.248137489 +0800
+@@ -26,7 +26,9 @@
+ #include "beacon.h"
+ #include "sta_info.h"
+ #include "wps_hostapd.h"
+-
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "connectivity_patch/connectivity_patch.h"
++#endif
+ 
+ #ifdef CONFIG_WPS_UPNP
+ #include "wps/wps_upnp.h"
+@@ -49,6 +51,66 @@ struct wps_for_each_data {
+ 	struct hostapd_data *calling_hapd;
+ };
+ 
++#ifdef CONFIG_ONT_WPS_PATCH
++static unsigned int  get_vap_id(const char *c_string)
++{
++    unsigned int ul_ret = 0;
++    unsigned int i;
++
++    for ( i = 0; i < IFNAMSIZ; i++)
++    {
++        switch (c_string[i])
++        {
++            case '0':
++            case '1':
++            case '2':
++            case '3':
++            case '4':
++            case '5':
++            case '6':
++            case '7':
++            case '8':
++            case '9':
++                ul_ret = 10 * ul_ret + (c_string[i] - '0');
++                break;
++
++            case '\0':
++                return ul_ret;
++
++            default:
++                 continue;
++
++        }
++    }
++    return ul_ret;
++}
++
++static void hostapd_post_wps_status(char *c_ifname, WPS_STATUS en_wpa_status,unsigned char *puc_sta_mac)
++{
++    //echo event=123,<vap_index>,<wps_status>,<sta_mac> > /proc/wifilog/connect/All
++    char c_status_buf[100] = {0};
++    unsigned char auc_null_sta[ETH_ALEN] = {0};
++
++    if (en_wpa_status >= WPS_STATUS_BUTT)
++    {
++        return;
++    }
++
++    if (NULL == puc_sta_mac)
++    {
++        sprintf(c_status_buf, "echo event=123,%d,%d,"MACSTR" > /proc/wifilog/connect/All",
++            get_vap_id(c_ifname),en_wpa_status,MAC2STR(auc_null_sta));
++    }
++    else
++    {
++        sprintf(c_status_buf, "echo event=123,%d,%d,"MACSTR" > /proc/wifilog/connect/All",
++            get_vap_id(c_ifname),en_wpa_status,MAC2STR(puc_sta_mac));
++    }
++
++    system(c_status_buf);
++    return;
++}
++#endif
+ 
+ static int wps_for_each(struct hostapd_iface *iface, void *ctx)
+ {
+@@ -795,6 +857,9 @@ static void hostapd_pwd_auth_fail(struct
+ 	hapd->wps_stats.failure_reason = WPS_EI_AUTH_FAILURE;
+ 	os_memcpy(hapd->wps_stats.peer_addr, data->peer_macaddr, ETH_ALEN);
+ 
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface,WPS_STATUS_START_FAILED, NULL);
++#endif
+ 	hostapd_wps_for_each(hapd, wps_pwd_auth_fail, data);
+ }
+ 
+@@ -818,6 +883,9 @@ static int wps_ap_pin_success(struct hos
+ 
+ static void hostapd_wps_ap_pin_success(struct hostapd_data *hapd)
+ {
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_DEVICE_ACCESSED, hapd->wps_stats.peer_addr);
++#endif
+ 	hostapd_wps_for_each(hapd, wps_ap_pin_success, NULL);
+ }
+ 
+@@ -826,6 +894,9 @@ static void hostapd_wps_event_pbc_overla
+ {
+ 	/* Update WPS Status - PBC Overlap */
+ 	hapd->wps_stats.pbc_status = WPS_PBC_STATUS_OVERLAP;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_START_FAILED, NULL);
++#endif
+ }
+ 
+ 
+@@ -833,6 +904,9 @@ static void hostapd_wps_event_pbc_timeou
+ {
+ 	/* Update WPS PBC Status:PBC Timeout */
+ 	hapd->wps_stats.pbc_status = WPS_PBC_STATUS_TIMEOUT;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_CONNECT_TIMEOUT, NULL);
++#endif
+ }
+ 
+ 
+@@ -847,6 +921,9 @@ static void hostapd_wps_event_pbc_disabl
+ {
+ 	/* Update WPS PBC status - Active */
+ 	hapd->wps_stats.pbc_status = WPS_PBC_STATUS_DISABLE;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_IDLE, NULL);
++#endif
+ }
+ 
+ 
+@@ -857,6 +934,9 @@ static void hostapd_wps_event_success(st
+ 	hapd->wps_stats.pbc_status = WPS_PBC_STATUS_DISABLE;
+ 	hapd->wps_stats.status = WPS_STATUS_SUCCESS;
+ 	os_memcpy(hapd->wps_stats.peer_addr, success->peer_macaddr, ETH_ALEN);
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_DEVICE_ACCESSED, hapd->wps_stats.peer_addr);
++#endif
+ }
+ 
+ 
+@@ -868,6 +948,9 @@ static void hostapd_wps_event_fail(struc
+ 	os_memcpy(hapd->wps_stats.peer_addr, fail->peer_macaddr, ETH_ALEN);
+ 
+ 	hapd->wps_stats.failure_reason = fail->error_indication;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_DEVICE_ACCESSED, hapd->wps_stats.peer_addr);
++#endif
+ 
+ 	if (fail->error_indication > 0 &&
+ 	    fail->error_indication < NUM_WPS_EI_VALUES) {
+@@ -1083,6 +1166,10 @@ int hostapd_init_wps(struct hostapd_data
+ 	struct wps_registrar_config cfg;
+ 	u8 *multi_ap_netw_key = NULL;
+ 
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_IDLE, NULL);
++#endif
++
+ 	if (conf->wps_state == 0) {
+ 		hostapd_wps_clear_ies(hapd, 0);
+ 		return 0;
+@@ -1541,6 +1628,10 @@ int hostapd_wps_add_pin(struct hostapd_d
+ 	u8 u[UUID_LEN];
+ 	struct wps_add_pin_data data;
+ 
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_NO_DEVICE_ACCESS, NULL);
++#endif
++
+ 	data.addr = addr;
+ 	data.uuid = u;
+ 	data.pin = (const u8 *) pin;
+@@ -1585,15 +1676,43 @@ int hostapd_wps_button_pushed(struct hos
+ {
+ 	struct wps_button_pushed_ctx ctx;
+ 	int ret;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	wps_procedure_state = WPS_CONTINUE;
++#endif
+ 
+ 	os_memset(&ctx, 0, sizeof(ctx));
+ 	ctx.p2p_dev_addr = p2p_dev_addr;
+ 	ret = hostapd_wps_for_each(hapd, wps_button_pushed, &ctx);
+ 	if (ret == 0 && !ctx.count)
+ 		ret = -1;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_NO_DEVICE_ACCESS, NULL);
++#endif
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++int hostapd_wps_get_state(char *buf, size_t buflen)
++{
++	if(WPS_DONE == wps_procedure_state)
++	{
++		os_snprintf(buf, buflen,"WPS DONE\n");
++	}
++	else if(WPS_CONTINUE == wps_procedure_state)
++	{
++		os_snprintf(buf, buflen, "WPS CONTINUE\n");
++	}
++	else if(WPS_FAILURE == wps_procedure_state)
++	{
++		os_snprintf(buf, buflen, "WPS FAILURE\n");
++	}
++	else if(WPS_PENDING == wps_procedure_state)
++	{
++		os_snprintf(buf,  buflen,"WPS PENDING\n");
++	}
++	return strlen(buf)+1;
++}
++#endif
+ 
+ struct wps_cancel_ctx {
+ 	unsigned int count;
+@@ -1802,6 +1921,9 @@ static void hostapd_wps_ap_pin_timeout(v
+ {
+ 	struct hostapd_data *hapd = eloop_data;
+ 	wpa_printf(MSG_DEBUG, "WPS: AP PIN timed out");
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_CONNECT_TIMEOUT, NULL);
++#endif
+ 	hostapd_wps_ap_pin_disable(hapd);
+ 	wpa_msg(hapd->msg_ctx, MSG_INFO, WPS_EVENT_AP_PIN_DISABLED);
+ }
+@@ -1811,6 +1933,9 @@ static void hostapd_wps_ap_pin_enable(st
+ {
+ 	wpa_printf(MSG_DEBUG, "WPS: Enabling AP PIN (timeout=%d)", timeout);
+ 	hapd->ap_pin_failures = 0;
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_NO_DEVICE_ACCESS, NULL);
++#endif
+ 	hapd->ap_pin_failures_consecutive = 0;
+ 	hapd->conf->ap_setup_locked = 0;
+ 	if (hapd->wps->ap_setup_locked) {
+@@ -1840,6 +1965,9 @@ static int wps_ap_pin_disable(struct hos
+ void hostapd_wps_ap_pin_disable(struct hostapd_data *hapd)
+ {
+ 	wpa_printf(MSG_DEBUG, "WPS: Disabling AP PIN");
++#ifdef CONFIG_ONT_WPS_PATCH
++    hostapd_post_wps_status(hapd->conf->iface, WPS_STATUS_IDLE, NULL);
++#endif
+ 	hostapd_wps_for_each(hapd, wps_ap_pin_disable, NULL);
+ }
+ 
+diff -uprN a/src/ap/wps_hostapd.h b/src/ap/wps_hostapd.h
+--- a/src/ap/wps_hostapd.h	2022-11-15 16:24:45.212845701 +0800
++++ b/src/ap/wps_hostapd.h	2022-11-15 16:15:58.028861862 +0800
+@@ -10,6 +10,9 @@
+ #define WPS_HOSTAPD_H
+ 
+ #ifdef CONFIG_WPS
++#ifdef CONFIG_CONNECTIVITY_PATCH
++int hostapd_wps_get_state(char *buf, size_t buflen);
++#endif
+ 
+ int hostapd_init_wps(struct hostapd_data *hapd,
+ 		     struct hostapd_bss_config *conf);
+diff -uprN a/src/common/wpa_common.c b/src/common/wpa_common.c
+--- a/src/common/wpa_common.c	2022-11-15 16:24:45.220845701 +0800
++++ b/src/common/wpa_common.c	2022-11-15 16:15:58.032861862 +0800
+@@ -1884,6 +1884,11 @@ int wpa_derive_pmk_r0(const u8 *xxkey, s
+ 	wpa_hexdump(MSG_DEBUG, "FT: MDID", mdid, MOBILITY_DOMAIN_ID_LEN);
+ 	wpa_hexdump_ascii(MSG_DEBUG, "FT: R0KH-ID", r0kh_id, r0kh_id_len);
+ 	wpa_printf(MSG_DEBUG, "FT: S0KH-ID: " MACSTR, MAC2STR(s0kh_id));
++#ifdef CONFIG_CONNECTIVITY_LOCAL_11R_PATCH
++    wpa_hexdump_key(MSG_DEBUG, "xxkey in", xxkey, PMK_LEN);
++    wpa_printf(MSG_DEBUG, "%s %d: xxkey_len=%d, r0kh_id_len=%d", __func__, __LINE__, xxkey_len, r0kh_id_len);
++    wpa_hexdump(MSG_DEBUG, "r0kh_id", r0kh_id, FT_R0KH_ID_MAX_LEN);
++#endif	
+ 	pos = buf;
+ 	*pos++ = ssid_len;
+ 	os_memcpy(pos, ssid, ssid_len);
+diff -uprN a/src/connectivity_patch/connectivity_patch.c b/src/connectivity_patch/connectivity_patch.c
+--- a/src/connectivity_patch/connectivity_patch.c	1970-01-01 08:00:00.000000000 +0800
++++ b/src/connectivity_patch/connectivity_patch.c	2023-08-03 11:06:20.580623293 +0800
+@@ -0,0 +1,736 @@
++/******************************************************************************
++
++                  版权所有 (C), 2001-2011, 纳特技术有限公司
++
++ ******************************************************************************
++  文 件 名   : connectivity_patch.c
++  版 本 号   : 初稿
++  作    者   :
++  生成日期   : 2014年2月22日
++  最近修改   :
++  功能描述   : connectivity 项目 hostapd patch 文件
++  函数列表   :
++  修改历史   :
++  1.日    期   : 2014年2月22日
++    作    者   :
++    修改内容   : 创建文件
++
++******************************************************************************/
++
++
++#ifdef __cplusplus
++#if __cplusplus
++extern "C" {
++#endif
++#endif
++
++
++/*****************************************************************************
++  1 头文件包含
++*****************************************************************************/
++#include "includes.h"
++#include <net/if.h>
++#include <sys/socket.h>
++#include <sys/ioctl.h>
++#include <sys/types.h>
++
++
++#include "common.h"
++#include "drivers/driver.h"
++#include "drivers/driver_nl80211.h"
++#include "drivers/nl80211_copy.h"
++#include "utils/list.h"
++#include "common/ieee802_11_defs.h"
++#include "utils/os.h"
++
++#include "connectivity_patch.h"
++//#include "connectivity_patch_copy.h"
++#include "wps/wps.h"
++
++/*****************************************************************************
++  2 全局变量定义
++*****************************************************************************/
++int wps_procedure_state= WPS_FAILURE;
++
++/*****************************************************************************
++  3 结构定义定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  4 函数实现
++*****************************************************************************/
++
++/*****************************************************************************
++ 函 数 名  : prepare_ie_data
++ 功能描述  : 初始化wps 的ie信息元素
++ 输入参数  : wifi_ioctl_data_struct *ioctl_data
++           : const struct wpabuf *ie
++		   : enum APP_IE_TYPE ie_type_flag
++ 输出参数  : 无
++ 返 回 值  : void
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年4月21日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++static void prepare_ie_data(wifi_ioctl_data_struct *ioctl_data, const struct wpabuf *ie, en_app_ie_type_uint8 ie_type_flag)
++{
++    u8      *ie_tmp;
++    int      ie_len;
++
++    if (NULL != ie)
++    {
++        ie_tmp = (u8 *)wpabuf_head(ie);
++        ie_len = (int)wpabuf_len(ie);
++    }
++    else
++    {
++        ie_tmp = NULL;
++        ie_len = 0;
++    }
++
++    wpa_printf(MSG_DEBUG, "prepare_ie_data:ie_type=%d,ie_len=%d\n", (int)ie_type_flag, ie_len);
++
++    //ioctl_data->pri_data.app_ie.auc_ie         = ie_tmp;
++    memcpy(ioctl_data->pri_data.app_ie.auc_ie, ie_tmp, ie_len);
++    ioctl_data->pri_data.app_ie.ul_ie_len      = ie_len;
++    ioctl_data->pri_data.app_ie.en_app_ie_type = ie_type_flag;
++
++    wpa_hexdump(MSG_DEBUG, "prepare_ie_data: set p2p wps ie", ie_tmp, ie_len);
++}
++
++
++/*****************************************************************************
++ 函 数 名  : get_dev_name
++ 功能描述  : 获取网络设备名字
++ 输入参数  : char *dev_name
++             int ifindex
++             int skfd
++ 输出参数  : 无
++ 返 回 值  : static int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年2月22日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++static int get_dev_name(char *dev_name, int ifindex, int skfd)
++{
++    struct ifreq ifr;
++    int          ret;
++
++    memset(&ifr, 0, sizeof(ifr));
++    memset(dev_name, 0, IFNAMSIZ);
++
++    ifr.ifr_ifindex = ifindex;
++    ret = ioctl(skfd, SIOCGIFNAME, &ifr);
++    if (0 > ret)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]ioctl error:ret = %d ifindex[%d]\n",
++            __FUNCTION__, __LINE__, ret, ifindex);
++        return -1;
++    }
++
++    strncpy(dev_name, ifr.ifr_name, IFNAMSIZ - 1);
++    dev_name[IFNAMSIZ - 1] = '\0';
++
++    wpa_printf(MSG_DEBUG, "%s[%d]:dev_name = %s\n", __FUNCTION__, __LINE__, dev_name);
++
++    return 0;
++}
++
++/*****************************************************************************
++ 函 数 名  : send_priv_ioctl_data
++ 功能描述  : hostapd 通过ioctl 发送数据给驱动
++ 输入参数  : struct wpa_driver_nl80211_data *drv
++             wifi_ioctl_data_struct* ioctl_data
++ 输出参数  : 无
++ 返 回 值  : static int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年2月22日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++static int send_priv_ioctl_data(struct i802_bss *bss, wifi_ioctl_data_struct* ioctl_data)
++{
++    struct ifreq    ifr;
++    int             skfd;
++    int             ret;
++
++    if ((NULL == bss) || (NULL == ioctl_data))
++    {
++        wpa_printf(MSG_WARNING, "send_priv_ioctl_data:NULL argument.\n");
++        return -1;
++    }
++
++    /* 创建sock */
++    skfd = socket(PF_INET, SOCK_DGRAM, 0);
++    if (0 > skfd)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]:init socket failed:%d\n", __FUNCTION__,__LINE__,skfd);
++        return -1;
++    }
++
++    /* 获取device name */
++    memset(&ifr,0,sizeof(ifr));
++    ret = get_dev_name(ifr.ifr_name, bss->ifindex, skfd);
++    if (0 != ret)
++    {
++        wpa_printf(MSG_WARNING, "get_dev_name failed\n");
++
++        close(skfd);
++        return -1;
++    }
++
++    ifr.ifr_data = (void*)ioctl_data;
++
++    ret = ioctl(skfd, SIOCDEVPRIVATE, &ifr);
++    if (0 > ret)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]ioctl error:ret = %d. cmd = %d\n",
++            __FUNCTION__, __LINE__, ret, ioctl_data->cmd);
++
++        close(skfd);
++        return -1;
++    }
++
++    close(skfd);
++    return 0;
++
++}
++
++
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_get_sta_assoc_req_ie
++ 功能描述  : 获取sta 关联请求IE (WPA/WPA2 加密情况下，获取STA 关联请求IE 信息)
++ 输入参数  : void *priv
++             const u8 *mac
++             assoc_req_ie_stru *pst_assoc_req_ie
++             int size
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年2月22日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_get_sta_assoc_req_ie(void *priv, const u8 *mac, assoc_req_ie_stru *pst_assoc_req_ie, int size)
++{
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    if (NULL == pst_assoc_req_ie)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: buf is null.\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_GET_STA_ASSOC_REQ_IE;
++
++    memcpy(ioctl_data.pri_data.assoc_req_ie.mac, mac, ETH_ALEN);
++    ioctl_data.pri_data.assoc_req_ie.buf_size = size;
++    ioctl_data.pri_data.assoc_req_ie.buf      = pst_assoc_req_ie->ie;
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin send get sta assoc request ie to device\n", __FUNCTION__, __LINE__);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    if (0 == ret)
++    {
++        pst_assoc_req_ie->len = ioctl_data.pri_data.assoc_req_ie.buf_size;
++    }
++    else
++    {
++        wpa_printf(MSG_DEBUG, "%s[%d]: get sta assoc request ie failed!\n", __FUNCTION__, __LINE__);
++    }
++
++
++    return ret;
++
++}
++
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_country_code
++ 功能描述  : 设置ap 国家码
++ 输入参数  : void *priv
++             const char *country_code
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年2月22日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_set_country_code(void *priv, const char *country_code)
++{
++    struct i802_bss                *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_COUNTRY;
++    ioctl_data.pri_data.country_code.auc_country_code[0] = country_code[0];
++    ioctl_data.pri_data.country_code.auc_country_code[1] = country_code[1];
++    ioctl_data.pri_data.country_code.auc_country_code[2] = '\0';
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: %s\n", __FUNCTION__, __LINE__, country_code);
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++}
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_authmode
++ 功能描述  : 设置AP 认证模式.(WEP 加密情况下，hostapd 设置认证方式 share key 和open)
++ 输入参数  : void *priv
++             int auth_algs
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年2月22日
++    作    者   :  
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_set_authmode(void *priv, int auth_algs)
++{
++
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_AP_AUTH_ALG;
++    ioctl_data.pri_data.auth_params.auth_alg = auth_algs;
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin set authmode[%d] to device\n", __FUNCTION__, __LINE__, auth_algs);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++}
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_ssid
++ 功能描述  : 设置AP 的ssid          (隐藏SSID 需要设置)
++ 输入参数  : void *priv
++             const char *ssid
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年4月17日
++    作    者   :  
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_set_ssid(void *priv, const u8 *ssid, int ssid_len)
++{
++
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_SSID;
++    if (ssid_len > 32)
++    {
++        ssid_len = 32;
++    }
++    memcpy(ioctl_data.pri_data.auc_ssid, ssid, ssid_len);/*保留最后一个0作为字符串结尾，防止异常*/
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin set ssid[%s] to device\n", __FUNCTION__, __LINE__, ioctl_data.pri_data.auc_ssid);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++}
++
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++int wpa_driver_nl80211_sta_report(void *priv, const u8 *buff, int len)
++{
++
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_STA_REPORT;
++    if (len > 32)
++    {
++        len = 32;
++    }
++    memcpy(ioctl_data.pri_data.kick_user_params.mac, buff, len);/*保留最后一个0作为字符串结尾，防止异常*/
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin sta report[%x] to driver, len=%d\n", __FUNCTION__, __LINE__, buff[5], len);
++
++    wpa_printf(MSG_DEBUG, " MACSTR begin sta report[%x] to driver\n", __FUNCTION__, __LINE__, MAC2STR(buff));
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++}
++#endif
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_max_sta
++ 功能描述  : 设置AP 最大用户数      (当前内核无该接口设置到驱动 )
++ 输入参数  : void *priv
++             int auth_algs
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年4月30日
++    作    者   :  
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_set_max_sta(void *priv, int num)
++{
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_MAX_USER;
++    ioctl_data.pri_data.ul_vap_max_user = num;
++
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin set max_sta[%d] to device\n", __FUNCTION__, __LINE__, num);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++}
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_ap_wps_ie
++ 功能描述  : 设置AP WPS 信息元素    (WPS 特性需要，hostapd 原始版本nl80211未实现该接口 )
++ 输入参数  : void *priv
++            const struct wpabuf *beacon,
++            const struct wpabuf *proberesp,
++            const struct wpabuf *assocresp
++
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年4月15日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++
++int wpa_driver_nl80211_set_wps_ie(void *priv,
++                                    const struct wpabuf *beacon,
++                                    const struct wpabuf *proberesp,
++                                    const struct wpabuf *assocresp)
++{
++    struct i802_bss                *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret = 0;
++
++	int i;
++	struct wpabuf *ap_wps_p2p_ie = NULL;
++	struct cmd_desc {
++		int cmd;
++		const struct wpabuf *src;
++	} cmd_arr[] = {
++		{OAL_APP_BEACON_IE,    beacon},
++		{OAL_APP_PROBE_RSP_IE, proberesp},
++		{OAL_APP_ASSOC_RSP_IE, assocresp},
++		{-1, NULL}
++	};
++
++    if(NULL == priv)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: argument priv is null,return failed\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++	wpa_printf(MSG_DEBUG, "%s: Entry", __func__);
++    for (i = 0; cmd_arr[i].cmd != -1; i++)
++    {
++        memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++        ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_WPS_IE;
++
++		ap_wps_p2p_ie = cmd_arr[i].src ? wpabuf_dup(cmd_arr[i].src) : NULL;
++		if (ap_wps_p2p_ie != NULL)
++		{
++            if (wpabuf_len(ap_wps_p2p_ie) > WLAN_WPS_IE_MAX_SIZE)
++            {
++                /* 如果下发ie 长度大于事件内存大小，提示错误 */
++                wpa_printf(MSG_ERROR, "%s: app ie too large to wifi driver buffer.app_ie_len %d, auc_ie len %d",
++                            __func__, wpabuf_len(ap_wps_p2p_ie), WLAN_WPS_IE_MAX_SIZE);
++                wpabuf_free(ap_wps_p2p_ie);
++                return -1;
++            }
++
++            prepare_ie_data(&ioctl_data, ap_wps_p2p_ie, cmd_arr[i].cmd);
++
++            ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++	        wpabuf_free(ap_wps_p2p_ie);
++
++			if (ret < 0)
++			{
++			    wpa_printf(MSG_ERROR, "%s: set app ie wrong !%d", __func__, ret);
++				break;
++	        }
++		}
++		else
++		{
++			/* */
++			ioctl_data.pri_data.app_ie.ul_ie_len      = 0;
++			ioctl_data.pri_data.app_ie.en_app_ie_type = cmd_arr[i].cmd;
++
++			ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++			if (ret < 0)
++			{
++				wpa_printf(MSG_ERROR, "%s: set app ie wrong !%d", __func__, ret);
++				break;
++			}
++		}
++	}
++
++    return ret;
++
++}
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_frag
++ 功能描述  : 设置分片参数    ( linux 2.6.30 不支持设置分片，采用私用接口实现 )
++ 输入参数  : void *priv
++             int frag
++
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年7月29日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++
++int wpa_driver_nl80211_set_frag(void *priv,
++                                      int frag)
++{
++    struct i802_bss                *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    if(NULL == priv)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: argument priv is null,return failed\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++    /* 设置分片门限值 */
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_FRAG;
++    ioctl_data.pri_data.frag = frag;
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++
++}
++
++
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_set_rts
++ 功能描述  : 设置分片参数    ( linux 2.6.30 不支持设置RTS 门限，采用私用接口实现 )
++ 输入参数  : void *priv
++             int rts
++
++ 输出参数  : 无
++ 返 回 值  : int
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2014年8月20日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++
++int wpa_driver_nl80211_set_rts(void *priv,
++                                int rts)
++{
++    struct i802_bss                *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    if(NULL == priv)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: argument priv is null,return failed\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++    /* 设置RTS 门限值 */
++    ioctl_data.cmd          = HWIFI_IOCTL_CMD_SET_RTS;
++    ioctl_data.pri_data.rts = rts;
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++
++}
++
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_sta_auth
++ 功能描述  : wpa_supplicant下发添加auth中的mdie ftie rsnie的命令
++ 输入参数  : priv:      wpa_supplicant本地结构
++             pst_auth_rsp_ie: 需要在auth帧中下发的IE
++ 输出参数  :
++ 返 回 值  :
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2017年02月14日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_sta_auth(void *priv, const u8 *own_addr, const u8 *addr,
++			 u16 seq, u16 status, const u8 *pst_auth_rsp_ie, size_t len)
++{
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++    if (NULL == pst_auth_rsp_ie)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: buf is null.\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_MLME;
++    ioctl_data.pri_data.set_mlme.en_mlme_type = OAL_IEEE80211_MLME_AUTH;
++    ioctl_data.pri_data.set_mlme.uc_seq = seq;
++    ioctl_data.pri_data.set_mlme.us_reason = status;
++    memcpy(ioctl_data.pri_data.set_mlme.uc_macaddr, addr, ETH_ALEN);
++    if (len < MAC_MAX_FT_ALL_LEN)
++    {
++        memcpy(&(ioctl_data.pri_data.set_mlme.uc_optie), pst_auth_rsp_ie, len);
++        ioctl_data.pri_data.set_mlme.us_optie_len = len;
++    }
++    else
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: uc_optie len[%d] is wrong.\n", __FUNCTION__, __LINE__, len);
++        return -1;
++    }
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin send auth rsp ie to device\n", __FUNCTION__, __LINE__);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++
++}
++/*****************************************************************************
++ 函 数 名  : wpa_driver_nl80211_sta_assoc
++ 功能描述  : wpa_supplicant下发添加assoc/reassoc rsp中的mdie ftie rsnie的命令
++ 输入参数  : priv:      wpa_supplicant本地结构
++             pst_auth_rsp_ie: 需要在assoc rsp帧中下发的IE
++ 输出参数  :
++ 返 回 值  :
++ 调用函数  :
++ 被调函数  :
++
++ 修改历史      :
++  1.日    期   : 2017年02月14日
++    作    者   : 
++    修改内容   : 新生成函数
++
++*****************************************************************************/
++int wpa_driver_nl80211_sta_assoc(void *priv, const u8 *own_addr, const u8 *addr,
++			  int reassoc, u16 status, const u8 *pst_assoc_rsp_ie, size_t len)
++{
++    struct i802_bss *bss = priv;
++    wifi_ioctl_data_struct          ioctl_data;
++    int                             ret;
++
++    if (NULL == pst_assoc_rsp_ie)
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: buf is null.\n", __FUNCTION__, __LINE__);
++        return -1;
++    }
++
++    memset(&ioctl_data, 0, sizeof(wifi_ioctl_data_struct));
++    ioctl_data.cmd = HWIFI_IOCTL_CMD_SET_MLME;
++    if (reassoc)
++    {
++        ioctl_data.pri_data.set_mlme.en_mlme_type = OAL_IEEE80211_MLME_REASSOC;
++    }
++    else
++    {
++        ioctl_data.pri_data.set_mlme.en_mlme_type = OAL_IEEE80211_MLME_ASSOC;
++    }
++    ioctl_data.pri_data.set_mlme.us_reason = status;
++    memcpy(ioctl_data.pri_data.set_mlme.uc_macaddr, addr, ETH_ALEN);
++    if (len < MAC_MAX_FT_ALL_LEN)
++    {
++        memcpy(&(ioctl_data.pri_data.set_mlme.uc_optie), pst_assoc_rsp_ie, len);
++        ioctl_data.pri_data.set_mlme.us_optie_len = len;
++    }
++    else
++    {
++        wpa_printf(MSG_WARNING, "%s[%d]: uc_optie len[%d] is wrong.\n", __FUNCTION__, __LINE__, len);
++        return -1;
++    }
++    wpa_printf(MSG_DEBUG, "%s[%d]: begin send assoc rsp ie[%d] to device\n", __FUNCTION__, __LINE__, len);
++
++    ret = send_priv_ioctl_data(bss, &ioctl_data);
++
++    return ret;
++
++
++}
++#endif
++
++#ifdef __cplusplus
++    #if __cplusplus
++        }
++    #endif
++#endif
+diff -uprN a/src/connectivity_patch/connectivity_patch_copy.h b/src/connectivity_patch/connectivity_patch_copy.h
+--- a/src/connectivity_patch/connectivity_patch_copy.h	1970-01-01 08:00:00.000000000 +0800
++++ b/src/connectivity_patch/connectivity_patch_copy.h	2022-11-15 16:15:58.036861862 +0800
+@@ -0,0 +1,232 @@
++/******************************************************************************
++
++                  版权所有 (C), 2001-2011, 纳特技术有限公司
++
++ ******************************************************************************
++  文 件 名   : connectivity_patch_copy.h
++  版 本 号   : 初稿
++  作    者   :
++  生成日期   : 2014年2月22日
++  最近修改   :
++  功能描述   : connectivity 项目 hostapd patch 头文件.保存从hostapd、wpa_supplicant 拷贝过来的结构。
++  函数列表   :
++  修改历史   :
++  1.日    期   : 2014年2月22日
++    作    者   :
++    修改内容   : 创建文件
++
++******************************************************************************/
++
++
++#ifdef __cplusplus
++#if __cplusplus
++extern "C" {
++#endif
++#endif
++
++#ifndef __CONNECTIVITY_PATCH_COPY_H
++#define __CONNECTIVITY_PATCH_COPY_H
++
++/*****************************************************************************
++  1 头文件包含
++*****************************************************************************/
++
++
++/*****************************************************************************
++  2 宏定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  3 枚举定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  4 全局变量声明
++*****************************************************************************/
++
++
++/*****************************************************************************
++  5 消息头定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  6 消息定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  7 STRUCT定义
++*****************************************************************************/
++
++struct nl80211_global {
++    struct dl_list interfaces;
++    int if_add_ifindex;
++    struct netlink_data *netlink;
++    struct nl_cb *nl_cb;
++    struct nl_handle *nl;
++    int nl80211_id;
++    int ioctl_sock; /* socket for ioctl() use */
++
++    struct nl_handle *nl_event;
++};
++
++struct i802_bss {
++    struct wpa_driver_nl80211_data *drv;
++    struct i802_bss *next;
++    int ifindex;
++    int br_ifindex;
++    u64 wdev_id;
++    char ifname[IFNAMSIZ + 1];
++    char brname[IFNAMSIZ];
++    unsigned int beacon_set:1;
++    unsigned int added_if_into_bridge:1;
++    unsigned int added_bridge:1;
++    unsigned int in_deinit:1;
++    unsigned int wdev_id_set:1;
++    unsigned int added_if:1;
++    unsigned int static_ap:1;
++
++    u8 addr[ETH_ALEN];
++
++    int freq;
++    int bandwidth;
++    int if_dynamic;
++
++    void *ctx;
++    struct nl_handle *nl_preq, *nl_mgmt;
++    struct nl_cb *nl_cb;
++
++    struct nl80211_wiphy_data *wiphy_data;
++    struct dl_list wiphy_list;
++};
++
++struct wpa_driver_nl80211_data {
++    struct nl80211_global *global;
++    struct dl_list list;
++    struct dl_list wiphy_list;
++    char phyname[32];
++    u8 perm_addr[ETH_ALEN];
++    void *ctx;
++    int ifindex;
++    int if_removed;
++    int if_disabled;
++    int ignore_if_down_event;
++    struct rfkill_data *rfkill;
++    struct wpa_driver_capa capa;
++    u8 *extended_capa, *extended_capa_mask;
++    unsigned int extended_capa_len;
++    int has_capability;
++
++    int operstate;
++
++    int scan_complete_events;
++    enum scan_states {
++        NO_SCAN, SCAN_REQUESTED, SCAN_STARTED, SCAN_COMPLETED,
++        SCAN_ABORTED, SCHED_SCAN_STARTED, SCHED_SCAN_STOPPED,
++        SCHED_SCAN_RESULTS
++    } scan_state;
++
++    u8 auth_bssid[ETH_ALEN];
++    u8 auth_attempt_bssid[ETH_ALEN];
++    u8 bssid[ETH_ALEN];
++    u8 prev_bssid[ETH_ALEN];
++    int associated;
++    u8 ssid[SSID_MAX_LEN];
++    size_t ssid_len;
++    enum nl80211_iftype nlmode;
++    enum nl80211_iftype ap_scan_as_station;
++    unsigned int assoc_freq;
++
++    int monitor_sock;
++    int monitor_ifidx;
++    int monitor_refcount;
++
++    unsigned int disabled_11b_rates:1;
++    unsigned int pending_remain_on_chan:1;
++    unsigned int in_interface_list:1;
++    unsigned int device_ap_sme:1;
++    unsigned int poll_command_supported:1;
++    unsigned int data_tx_status:1;
++    unsigned int scan_for_auth:1;
++    unsigned int retry_auth:1;
++    unsigned int use_monitor:1;
++    unsigned int ignore_next_local_disconnect:1;
++    unsigned int ignore_next_local_deauth:1;
++    unsigned int hostapd:1;
++    unsigned int start_mode_ap:1;
++    unsigned int start_iface_up:1;
++    unsigned int test_use_roc_tx:1;
++    unsigned int ignore_deauth_event:1;
++    unsigned int vendor_cmd_test_avail:1;
++    unsigned int roaming_vendor_cmd_avail:1;
++    unsigned int dfs_vendor_cmd_avail:1;
++    unsigned int have_low_prio_scan:1;
++    unsigned int force_connect_cmd:1;
++    unsigned int addr_changed:1;
++    unsigned int get_features_vendor_cmd_avail:1;
++    unsigned int set_rekey_offload:1;
++    unsigned int p2p_go_ctwindow_supported:1;
++    unsigned int setband_vendor_cmd_avail:1;
++    unsigned int get_pref_freq_list:1;
++    unsigned int set_prob_oper_freq:1;
++
++    u64 remain_on_chan_cookie;
++    u64 send_action_cookie;
++
++    unsigned int last_mgmt_freq;
++
++    struct wpa_driver_scan_filter *filter_ssids;
++    size_t num_filter_ssids;
++
++    struct i802_bss *first_bss;
++
++    int eapol_tx_sock;
++
++    int eapol_sock; /* socket for EAPOL frames */
++
++    struct nl_handle *rtnl_sk; /* nl_sock for NETLINK_ROUTE */
++
++    int default_if_indices[16];
++    int *if_indices;
++    int num_if_indices;
++
++    /* From failed authentication command */
++    int auth_freq;
++    u8 auth_bssid_[ETH_ALEN];
++    u8 auth_ssid[SSID_MAX_LEN];
++    size_t auth_ssid_len;
++    int auth_alg;
++    u8 *auth_ie;
++    size_t auth_ie_len;
++    u8 auth_wep_key[4][16];
++    size_t auth_wep_key_len[4];
++    int auth_wep_tx_keyidx;
++    int auth_local_state_change;
++    int auth_p2p;
++};
++
++
++/*****************************************************************************
++  8 UNION定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  9 OTHERS定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  10 函数声明
++*****************************************************************************/
++
++#endif /* __CONNECTIVITY_PATCH_COPY_H */
++
++#ifdef __cplusplus
++    #if __cplusplus
++        }
++    #endif
++#endif
+diff -uprN a/src/connectivity_patch/connectivity_patch.h b/src/connectivity_patch/connectivity_patch.h
+--- a/src/connectivity_patch/connectivity_patch.h	1970-01-01 08:00:00.000000000 +0800
++++ b/src/connectivity_patch/connectivity_patch.h	2023-08-03 11:06:29.200384515 +0800
+@@ -0,0 +1,599 @@
++/******************************************************************************
++
++                  版权所有 (C), 2001-2011, 纳特技术有限公司
++
++ ******************************************************************************
++  文 件 名   : connectivity_patch.h
++  版 本 号   : 初稿
++  作    者   :
++  生成日期   : 2014年2月22日
++  最近修改   :
++  功能描述   : connectivity 项目 hostapd patch 头文件
++  函数列表   :
++  修改历史   :
++  1.日    期   : 2014年2月22日
++    作    者   :
++    修改内容   : 创建文件
++
++******************************************************************************/
++
++
++#ifdef __cplusplus
++#if __cplusplus
++extern "C" {
++#endif
++#endif
++
++#ifndef __CONNECTIVITY_PATCH_H
++#define __CONNECTIVITY_PATCH_H
++
++/*****************************************************************************
++  1 头文件包含
++*****************************************************************************/
++#include "drivers/driver.h"
++
++/*****************************************************************************
++  2 宏定义
++*****************************************************************************/
++#define     ASSOC_REQ_LEN   1024
++#define     PRIV_NL80211_MAX_NR_CIPHER_SUITES    5
++#define     PRIV_NL80211_MAX_NR_AKM_SUITES       2
++#define     PRIV_WLAN_CFGID_SET_WPS_LED          793
++#define     SIOCIWFIRSTPRIV	                     0x8BE0
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++#define     MAC_MAX_FT_ALL_LEN                   518                    /* MD:5 FT:257 RSN:256 */
++#endif
++/* 注意: 整个结构体长度为事件内存池大小，如果事件内存池有修改，则需要同步修改app 数据结构 */
++#define WLAN_MEM_EVENT_SIZE2                512              /* 注意: 事件内存长度包括4字节IPC头长度 */
++#define WLAN_WPS_IE_MAX_SIZE                WLAN_MEM_EVENT_SIZE2 - 32   /* 32表示事件自身占用的空间 */
++/*****************************************************************************
++  3 枚举定义
++*****************************************************************************/
++enum HWIFI_IOCTL_CMD
++{
++    /*
++     *IOCTL_CMD的起始值由0修改为0x8EE0，修改原因：51 WiFi模块和类似于dhdutil之类的其他模块共用同一个ioctl通道，
++     *而51命令的枚举值从0开始，其他模块下发的ioctl命令也包含从0开始的这部分，这样就会同时“组播”到自己的模块和WiFi模块，
++     *从而对WiFi模块的功能产生影响。所以将51 WiFi模块命令的枚举值调整到0x8EE0起，便规避了其他模块命令的影响。
++     */
++    HWIFI_IOCTL_CMD_GET_STA_ASSOC_REQ_IE = 0x8EE0,       /* get sta assocate request ie */
++    HWIFI_IOCTL_CMD_SET_AP_AUTH_ALG,            /* set auth alg to driver */
++    HWIFI_IOCTL_CMD_SET_COUNTRY,                /* 设置国家码 */
++    HWIFI_IOCTL_CMD_SET_SSID,                   /* 设置ssid */
++    HWIFI_IOCTL_CMD_SET_MAX_USER,               /* 设置最大用户数 */
++    HWIFI_IOCTL_CMD_SET_FREQ,                   /* 设置频段 */
++    HWIFI_IOCTL_CMD_SET_WPS_IE,                 /* 设置AP WPS 信息元素 */
++	HWIFI_IOCTL_CMD_PRIV_CONNECT,               /* linux-2.6.30 sta发起connect */
++    HWIFI_IOCTL_CMD_PRIV_DISCONNECT,            /* linux-2.6.30 sta发起disconnect */
++    HWIFI_IOCTL_CMD_SET_FRAG,                   /* 设置分片门限值 */
++    HWIFI_IOCTL_CMD_SET_RTS,                    /* 设置RTS 门限值 */
++
++    //CONFIG_CONNECTIVITY_11R_PATCH
++    HWIFI_IOCTL_CMD_SET_MLME,                   /* 设置MLME操作（认证、关联） */
++    //_PRE_WLAN_WEB_CMD_COMM
++    HWIFI_IOCTL_CMD_GET_NEIGHB_INFO,            /* 获取邻居AP扫描信息 */
++    HWIFI_IOCTL_CMD_GET_HW_STAT,                /* 获取硬件流量统计 */
++    HWIFI_IOCTL_CMD_GET_WME_STAT,               /* 获取WME队列统计 */
++    HWIFI_IOCTL_CMD_GET_STA_11V_ABILITY,        /* 获取指定STA的11v能力信息 */
++    HWIFI_IOCTL_CMD_11V_CHANGE_AP,              /* 通知sta切换到指定ap */
++    HWIFI_IOCTL_CMD_GET_STA_11K_ABILITY,        /* 获取指定STA的11v能力信息 */
++    HWIFI_IOCTL_CMD_SET_STA_BCN_REQUEST,        /* 通知STA的上报beacon信息 */
++    HWIFI_IOCTL_CMD_GET_SNOOP_TABLE,            /* 获取组播组及其成员的mac地址 */
++    HWIFI_IOCTL_CMD_GET_ALL_STA_INFO_EXT,       /* 获取所有已关联STA链路信息，包含增量部分 */
++    HWIFI_IOCTL_CMD_GET_VAP_WDS_INFO,           /* 获取WDS VAP节点信息 */
++    HWIFI_IOCTL_CMD_GET_STA_11H_ABILITY,        /* 获取指定STA的11h能力信息 */
++    HWIFI_IOCTL_CMD_GET_STA_11R_ABILITY,        /* 获取指定STA的11r能力信息 */
++    HWIFI_IOCTL_CMD_GET_TX_DELAY_AC,            /* 获取指定所有AC的发送时延信息 */
++    HWIFI_IOCTL_CMD_GET_CAR_INFO,               /* 获取指定device下面的car限速配置信息 */
++    HWIFI_IOCTL_CMD_GET_BLKWHTLST,              /* 获取黑白名单 */
++    HWIFI_IOCTL_CMD_GET_CHR_AP_STATUS,          /* CPE获取CHR AP信息 */
++    HWIFI_IOCTL_CMD_GET_CHR_STA_STATUS,         /* CPE获取CHR STA信息 */
++//#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++    HWIFI_IOCTL_CMD_STA_REPORT,                 /* STA信息下发给驱动 */
++//#endif
++    HWIFI_IOCTL_CMD_GET_STA_STATS,              /* 获取STA收发报文字节数的统计*/
++
++    HWIFI_IOCTL_CMD_GET_VAP_BROADCAST_STATUS,    /* 获取ap组播报文*/
++    HWIFI_IOCTL_CMD_NUM
++};
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++enum SET_MLME_TYPE
++{
++    OAL_IEEE80211_MLME_AUTH     = 0,    /* MLME下发认证帧相关内容 */
++    OAL_IEEE80211_MLME_ASSOC    = 1,    /* MLME下发关联帧相关内容 */
++    OAL_IEEE80211_MLME_REASSOC  = 2,   /* MLME下发重关联帧相关内容 */
++    OAL_IEEE80211_MLME_NUM
++};
++typedef u8 en_set_mlme_type_uint8;
++#endif
++
++enum APP_IE_TYPE
++{
++    OAL_APP_BEACON_IE = 0,
++    OAL_APP_PROBE_REQ_IE,
++    OAL_APP_PROBE_RSP_IE,
++    OAL_APP_ASSOC_REQ_IE,
++    OAL_APP_ASSOC_RSP_IE,
++    OAL_APP_VENDOR_IE,
++    OAL_APP_IE_NUM
++};
++typedef u8 en_app_ie_type_uint8;
++
++/*****************************************************************************
++  4 全局变量声明
++*****************************************************************************/
++extern int wps_procedure_state;
++
++/*****************************************************************************
++  5 消息头定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  6 消息定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  7 STRUCT定义
++*****************************************************************************/
++/* 解析内核配置的connect参数后，下发给驱动的connect参数 */
++typedef struct
++{
++    u32               wpa_versions;
++    u32               cipher_group;
++    int               n_ciphers_pairwise;
++    u32               ciphers_pairwise[PRIV_NL80211_MAX_NR_CIPHER_SUITES];
++    int               n_akm_suites;
++    u32               akm_suites[PRIV_NL80211_MAX_NR_AKM_SUITES];
++
++    u8                control_port;
++    u8                auc_arry[7];        //Add 4 bytes to sync size with kernel definition
++}cfg80211_crypto_settings;
++
++typedef struct
++{
++    u8              auc_group_mac[ETH_ALEN];
++    u8              uc_sta_num;
++    u8              uc_reserve;
++    u8              auc_sta_mac[32][ETH_ALEN];     /* 组播组成员的mac地址，32是组播组成员的最大个数 */
++}wlan_snoop_group_stru;
++
++typedef struct
++{
++    u16                     us_group_cnt;
++    u8                      auc_resv[3];
++    wlan_snoop_group_stru   *pst_buf;
++}wlan_snoop_all_group_stru;
++typedef struct
++{
++    u8                           auc_mac[ETH_ALEN];
++    u8                           uc_stas_num;
++    u8                           auc_resv[1];
++}wlan_wds_node_stru;
++
++typedef struct
++{
++    u32                          ul_last_pkt_age;
++    wlan_wds_node_stru                   st_related_node;
++    u8                           auc_mac[ETH_ALEN];
++    u8                           auc_resv[2];
++}wlan_wds_stas_stru;
++
++typedef struct
++{
++    u32                          ul_last_pkt_age;
++    u8                           auc_mac[ETH_ALEN];
++    u8                           auc_resv[2];
++}wlan_wds_neigh_stru;
++
++typedef struct
++{
++    wlan_wds_node_stru                  *pst_peer_node;
++    wlan_wds_stas_stru                  *pst_wds_stas;
++    wlan_wds_neigh_stru                 *pst_neigh;
++    u32                          ul_wds_aging;
++    u8                           uc_wds_vap_mode;
++    u8                           uc_wds_node_num;
++    u16                          uc_wds_stas_num;
++    u16                          uc_neigh_num;
++    u8                           auc_resv[2];
++}wlan_wds_info_stru;
++
++//CAR
++typedef enum
++{
++    OAL_CAR_UPLINK = 0,       /* 上行 */
++    OAL_CAR_DOWNLINK = 1,     /* 下行 */
++
++    OAL_CAR_BUTT
++}oal_car_up_down_type_enum;
++
++typedef struct
++{
++    u8                                  en_car_limit_flag;                      /* 该device/vap/user是否限速 */
++    u8                                  auc_resv[3];
++    u32                                 ul_car_limit_kbps;                      /* 该device/vap/user限制带宽大小 */
++}oal_car_limit_stru;
++
++typedef struct
++{
++    oal_car_limit_stru                  st_car_device_ucast_cfg[OAL_CAR_BUTT];  /* device 单播限速结构体,0-上行 1-下行 */
++    oal_car_limit_stru                  st_car_device_mcast_cfg;                /* 组播限速，device 下行 */
++    u32                                 ul_car_orgin_mcast_pps_num;             /* 每个device有一个pps的原始令牌桶，不可消耗*/
++}oal_car_device_limit_stru;
++
++
++typedef struct
++{
++    u8                                  uc_vap_id;
++    u8                                  auc_resv[3];
++    oal_car_limit_stru                  ast_vap_car_cfg[OAL_CAR_BUTT];
++}oal_car_vap_limit_stru;
++
++typedef struct
++{
++    u16                                 us_assoc_id;
++    u8                                  auc_user_mac_addr[ETH_ALEN];    /* user对应的MAC地址 */
++    oal_car_limit_stru                  ast_user_car_cfg[OAL_CAR_BUTT];
++    u8                                  uc_vap_id;                      /* user对应的vapid */
++    u8                                  auc_resv[3];
++}oal_car_user_limit_stru;
++
++typedef struct
++{
++    u8                                  uc_ori_vap_id; /* 上面传下来的vap对应驱动的vapid,上层根据该vapid进行vap和user过滤；比如vap3 对应驱动vapid为5 */
++    u8                                  auc_resv[3];
++    u8                                  uc_device_id;
++    u16                                 us_car_ctl_cycle_ms;    /* 限速控制定时器周期, 100ms*/
++    u8                                  en_car_enable_flag;     /* car使能标志 */
++    u32                                 aul_car_packet_drop_num[OAL_CAR_BUTT];
++    u32                                 ul_car_mcast_packet_drop_num;
++    u32                                 ul_car_mcast_packet_pps_drop_num;
++
++    oal_car_device_limit_stru           st_car_device_cfg;
++    oal_car_vap_limit_stru              ast_car_vap_cfg[4];     // 4个vap
++    u16                                 us_user_buf_max;        /* 上层分配的user信息个数  */
++    u16                                 us_user_cnt;            /* 上报的user信息个数 */
++    oal_car_user_limit_stru            *pst_car_user_cfg;       /* 指向user信息内存块，每个device最大128用户 */
++
++}oal_car_info_stru;
++//car end
++
++typedef struct
++{
++    u8          uc_blkwhtlst_cnt;                                       /* 黑白名单个数 */
++    u8          uc_mode;                                                /* 黑白名单模式 */
++    u8          auc_resv[2];
++    u8          auc_blkwhtlst_mac[128][ETH_ALEN];
++}oal_blkwhtlst_stru;
++
++/*lint -e958*//* 屏蔽字节对齐错误 */
++/* RRM ENABLED CAP信息元素结构体 */
++struct oal_rrm_enabled_cap_ie
++{
++   u8   bit_link_cap            : 1,  /* bit0: Link Measurement capability enabled */
++        bit_neighbor_rpt_cap    : 1,  /* bit1: Neighbor Report capability enabled */
++        bit_parallel_cap        : 1,  /* bit2: Parallel Measurements capability enabled */
++        bit_repeat_cap          : 1,  /* bit3: Repeated Measurements capability enabled */
++        bit_bcn_passive_cap     : 1,  /* bit4: Beacon Passive Measurements capability enabled */
++        bit_bcn_active_cap      : 1,  /* bit5: Beacon Active Measurements capability enabled */
++        bit_bcn_table_cap       : 1,  /* bit6: Beacon Table Measurements capability enabled */
++        bit_bcn_meas_rpt_cond_cap: 1; /* bit7: Beacon Measurement Reporting Conditions capability enabled */
++   u8   bit_frame_cap           : 1,  /* bit8: Frame Measurement capability enabled */
++        bit_chn_load_cap        : 1,  /* bit9: Channel Load Measurement capability enabled */
++        bit_noise_histogram_cap : 1,  /* bit10: Noise Histogram Measurement capability enabled */
++        bit_stat_cap            : 1,  /* bit11: Statistics Measurement capability enabled */
++        bit_lci_cap             : 1,  /* bit12: LCI Measurement capability enabled */
++        bit_lci_azimuth_cap     : 1,  /* bit13: LCI Azimuth capability enabled */
++        bit_tsc_cap             : 1,  /* bit14: Transmit Stream/Category Measurement capability enabled */
++        bit_triggered_tsc_cap   : 1;  /* bit15: Triggered  Transmit Stream/Category Measurement capability enabled*/
++   u8   bit_ap_chn_rpt_cap                  : 1, /* bit16: AP Channel Report capability enabled */
++        bit_rm_mib_cap                      : 1, /* bit17: RM MIB capability enabled */
++        bit_oper_chn_max_meas_duration      : 3, /* bit18-20: Operating Channel Max Measurement Duration */
++        bit_non_oper_chn_max_meas_duration  : 3; /* bit21-23: Non-operating Channel Max Measurement Durationg */
++   u8   bit_meas_pilot_cap              : 3, /* bit24-26: Measurement Pilot capability */
++        bit_meas_pilot_trans_info_cap   : 1, /* bit27: Measurement Pilot Transmission Information capability enabled */
++        bit_neighbor_rpt_tsf_offset_cap : 1, /* bit28: Neighbor Report TSF Offset capability enabled */
++        bit_rcpi_cap                    : 1, /* bit29: RCPI Measurement capability enabled */
++        bit_rsni_cap                    : 1, /* bit30: RSNI Measurement capability enabled */
++        bit_bss_avg_access_dly          : 1; /* bit31: BSS Average Access Delay capability enabled */
++   u8   bit_avail_admission_capacity_cap: 1, /* bit32: BSS Available Admission Capacity capability enabled */
++        bit_antenna_cap                 : 1, /* bit33: Antenna capability enabled */
++        bit_rsv                         : 6; /* bit34-39: Reserved */
++};
++typedef struct oal_rrm_enabled_cap_ie oal_rrm_enabled_cap_ie_stru;
++/*lint +e958*/
++
++
++/* 邻居AP列表的BSS描述信息结构体 */
++struct oal_bssid_infomation
++{
++    u8  bit_ap_reachability:2,                                      /* AP的可到达性 */
++        bit_security:1,                                             /* 该AP的加密规则与当前连接是否一致 */
++        bit_key_scope:1,                                            /* 该AP的认证信息是否与当前上报一直 */
++        bit_spectrum_mgmt:1,                                        /* 能力位: 支持频谱管理 */    /* 能力位字段与beacon定义一致 */
++        bit_qos:1,                                                  /* 能力位: 支持QOS */
++        bit_apsd:1,                                                 /* 能力位: 支持APSD */
++        bit_radio_meas:1;                                           /* 能力位: 波长测量 */
++    u8  bit_delay_block_ack:1,                                      /* 能力位: 阻塞延迟应答 */
++        bit_immediate_block_ack:1,                                  /* 能力位: 阻塞立即应答 */
++        bit_mobility_domain:1,                                      /* 该AP的beacon帧中是否含有MDE，且与此次上报一致 */
++        bit_high_throughput:1,                                      /* 该AP的beacon帧中是否含有高吞吐量元素，且与此次上报一致 */
++        bit_resv1:4;                                                /* 预留 */
++    u8  bit_resv2;
++    u8  bit_resv3;
++};
++typedef struct oal_bssid_infomation  oal_bssid_infomation_stru;
++
++#define OAL_STA_RATE_MAX_NUM    32
++
++typedef struct
++{
++    u8   uc_rate_num;                        /* 个数 */
++    u8   auc_rsv[3];
++    u32  aul_rates[OAL_STA_RATE_MAX_NUM];    /* kbps */
++}oal_legacy_rate_kbps_stru;
++
++typedef struct
++{
++    u8   uc_is_valid;        /* 数值是否有效 */
++    u8   uc_max_rate_mcs;
++    u8   auc_rsv[2];
++}oal_ht_rate_mcs_stru;
++
++typedef struct
++{
++    u8   uc_is_valid;        /* 数值是否有效 */
++    u8   uc_max_rate_mcs;
++    u8   auc_rsv[2];
++}oal_vht_rate_mcs_stru;
++
++typedef struct
++{
++    oal_legacy_rate_kbps_stru st_legacy_rate_kbps;
++    oal_ht_rate_mcs_stru st_ht_rate_mcs;
++    oal_vht_rate_mcs_stru st_vht_rate_mcs;
++}oal_sta_rate_stru;
++
++/* user 的 cast info */
++typedef struct
++{
++    /* 单播统计 */
++    u32 ul_tx_msdu_ucast_bytes;   /* 发送单播报文字节数 */
++    u32 ul_rx_msdu_ucast_bytes;   /* 接收单播报文字节数 */
++    u32 ul_tx_msdu_ucast_pkts;    /* 发送单播报文数     */
++    u32 ul_rx_msdu_ucast_pkts;    /* 接收单播报文数     */
++
++    /* 组播统计 */
++    u32 ul_tx_msdu_mcast_bytes;   /* 发送组播报文字节数 */
++    u32 ul_rx_msdu_mcast_bytes;   /* 接收组播报文字节数 */
++    u32 ul_tx_msdu_mcast_pkts;    /* 发送组播报文数     */
++    u32 ul_rx_msdu_mcast_pkts;    /* 接收组播报文数     */
++
++    /* 广播统计 */
++    u32 ul_rx_msdu_bcast_bytes;   /* 接收广播报文字节数 */
++    u32 ul_rx_msdu_bcast_pkts;    /* 接收广播报文数     */
++} oal_sta_cast_info_stru;
++
++struct hostap_sta_link_info {
++    u8  addr[ETH_ALEN];
++    u8  rx_rssi;     /* 0 ~ 100 ,0xff为无效值*/
++    u8  tx_pwr;      /* 0 ~ 100 */
++    u32 rx_rate;     /* avr nego rate in kpbs */
++    u32 tx_rate;     /* avr nego rate in kpbs */
++    u32 rx_minrate;  /* min nego rx rate in last duration, clean to 0 when app read over */
++    u32 rx_maxrate;  /* max nego rx rate in last duration, clean to 0 when app read over */
++    u32 tx_minrate;  /* min nego tx rate in last duration, clean to 0 when app read over */
++    u32 tx_maxrate;  /* max nego tx rate in last duration, clean to 0 when app read over */
++    u64 rx_bytes;
++    u64 tx_bytes;
++    u32 tx_frames_rty;  /* tx frame retry cnt */
++    u32 tx_frames_all;  /* tx total frame cnt */
++    u32 tx_frames_fail; /* tx fail */
++    u32 SNR;            /* snr */
++};
++
++struct hostap_all_sta_link_info{
++    unsigned long   buf_cnt;        /* input: sta_info count provided  */
++    unsigned long   sta_cnt;        /* outpu: how many sta really */
++    unsigned int    cur_channel;
++    struct hostap_sta_link_info  *sta_info; /* output */
++};
++typedef struct hostap_sta_link_info oal_net_sta_link_info_stru;
++typedef struct hostap_all_sta_link_info oal_net_all_sta_link_info_stru;
++
++/* sta包含增量信息结构体 */
++struct hostap_sta_link_info_ext{
++    u8                      en_auth_st;             /* 认证状态 */
++    u8                      en_band;                /* 工作频段 */
++    u8                      en_wmm_switch;          /* wmm是否使能 */
++    u8                      uc_ps_st;               /* 节能状态 */
++    u8                      uc_sta_num;             /* 空间流数 */
++    u8                      en_work_mode;           /* 协议模式 */
++    s8                      c_noise;                /* 节点的噪声值 */
++    u8                      auc_resv[1];
++    u32                     ul_associated_time;     /* 用户已连接的时长 */
++    u8                      uc_short_gi_cap;        /* 是否支持短导码 */
++    u8                      uc_bw;                  /* 频宽信息 */
++    u8                      auc_resv1[2];
++    oal_sta_rate_stru       st_supp_rates;          /* STA 所支持的速率集 */
++    oal_sta_cast_info_stru  st_cast_info;           /* STA 的 cast 统计信息 */
++};
++
++struct hostap_all_sta_link_info_ext{
++    unsigned long   buf_cnt;        /* input: sta_info count provided  */
++    unsigned long   sta_cnt;        /* outpu: how many sta really */
++    unsigned int    cur_channel;
++    struct hostap_sta_link_info     *sta_info;
++    struct hostap_sta_link_info_ext *sta_info_ext; /* output */
++};
++typedef struct hostap_sta_link_info_ext oal_net_sta_link_info_ext_stru;
++typedef struct hostap_all_sta_link_info_ext oal_net_all_sta_link_info_ext_stru;
++
++typedef struct
++{
++    u8       auc_sta_mac[ETH_ALEN];          /*sta mac address*/
++    u8       auc_resv[2];
++    u32      ul_high_tx_bytes;               /*记录发送吞吐量的累计值，高32bit*/
++    u32      ul_low_tx_bytes;                /*记录发送吞吐量的累计值，低32bit*/
++    u32      ul_high_rx_bytes;               /*记录接收吞吐量的累计值，高32bit*/
++    u32      ul_low_rx_bytes;                /*记录接收吞吐量的累计值，低32bit*/
++}oal_sta_stat_info_stru;
++
++/* 必须与WiTP100 驱动程序中的此结构同步 */
++typedef struct
++{
++    unsigned char    auc_bssid[ETH_ALEN];       /* ap广播收发报文 */
++    u32   ul_tx_bcast_pkts;
++    u32   ul_rx_bcast_pkts;
++    u32   ul_tx_bcast_bytes;
++    u32   ul_rx_bcast_bytes;    
++}wlam_bcast_pkt_ap_stru;
++typedef struct wifi_ioctl_data_struct
++{
++    int cmd;                                  /* 命令号 */
++    union
++    {
++        struct
++        {
++            unsigned char mac[ETH_ALEN];
++            u8            rsv[2];
++            int           buf_size;          /* user space ie buffer size */
++            u8           *buf;               /* user space ie buffer addr */
++        }assoc_req_ie;                       /* ap mode use,get sta assocate request ie */
++
++        struct
++        {
++            int           auth_alg;
++        }auth_params;
++
++        struct
++        {
++            u8            auc_country_code[4];
++        }country_code;                       /* AP模式设置国家码 */
++        u8                auc_ssid[33];
++        unsigned int      ul_vap_max_user;
++
++        struct
++        {
++            int           l_freq;
++            int           l_channel;
++            int           l_ht_enabled;
++            int           l_sec_channel_offset;
++            int           l_vht_enabled;
++            int           l_center_freq1;
++            int           l_center_freq2;
++            int           l_bandwidth;
++        }freq;
++
++        struct
++        {
++            u32           ul_ie_len;
++            u8            en_app_ie_type;
++            u8            auc_rsv[3];
++            /* auc_ie 中保存信息元素，长度 = (事件内存池大小 - 保留长度) */
++            u8            auc_ie[WLAN_WPS_IE_MAX_SIZE];
++        }app_ie;                 /* beacon ie,index 0; proberesp ie index 2; assocresp ie index 4 */
++
++		struct
++        {
++            int                                 l_freq;                 /* ap所在频段 */
++            u32                                 uc_ssid_len;            /* SSID 长度 */
++            u32                                 uc_ie_len;
++
++            u8                                 *puc_ie;
++            const u8                           *puc_ssid;               /* 期望关联的AP SSID  */
++            const u8                           *puc_bssid;              /* 期望关联的AP BSSID  */
++
++            u8                                  en_privacy;             /* 是否加密标志 */
++            u32                                 en_auth_type;           /* 认证类型，OPEN or SHARE-KEY */
++
++            u8                                  uc_wep_key_len;         /* WEP KEY长度 */
++            u8                                  uc_wep_key_index;       /* WEP KEY索引 */
++            const u8                           *puc_wep_key;            /* WEP KEY密钥 */
++
++            cfg80211_crypto_settings            st_crypto;              /* 密钥套件信息 */
++
++        }cfg80211_connect_params;
++
++        struct
++        {
++            unsigned char    mac[ETH_ALEN];
++            u16              us_reason_code;                            /* 去关联 reason code */
++        }kick_user_params;
++
++        oal_net_all_sta_link_info_stru all_sta_link_info;
++
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++        struct
++        {
++            en_set_mlme_type_uint8     en_mlme_type;                    /* MLME类型*/
++            u8                  uc_seq;                                 /* 认证帧序列号 */
++            u16                 us_reason;                              /* 原因码 */
++            u8                  uc_macaddr[6];
++            u16                 us_optie_len;
++            u8                  uc_optie[MAC_MAX_FT_ALL_LEN];
++        }set_mlme;
++#endif
++        int                 frag;                                       /* 分片门限值 */
++        int                 rts;                                        /* RTS 门限值 */
++        wlan_snoop_all_group_stru        st_all_snoop_group;
++        wlan_wds_info_stru               st_wds_info;
++        struct hostap_all_sta_link_info_ext all_sta_link_info_ext;
++
++        oal_car_info_stru               st_car_info;
++        oal_blkwhtlst_stru              st_blkwhtlst;
++        oal_sta_stat_info_stru          st_sta_stats;
++    }pri_data;
++}wifi_ioctl_data_struct;
++
++struct assoc_req_ie_tag{
++    int len;
++    u8  ie[ASSOC_REQ_LEN];
++};
++typedef struct assoc_req_ie_tag assoc_req_ie_stru;
++
++
++
++/*****************************************************************************
++  8 UNION定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  9 OTHERS定义
++*****************************************************************************/
++
++
++/*****************************************************************************
++  10 函数声明
++*****************************************************************************/
++int wpa_driver_nl80211_get_sta_assoc_req_ie(void *priv, const u8 *mac, assoc_req_ie_stru *pst_assoc_req_ie, int size);
++int wpa_driver_nl80211_set_authmode(void *priv, int auth_algs);
++int wpa_driver_nl80211_set_country_code(void *priv, const char *country_code);
++int wpa_driver_nl80211_set_ssid(void *priv, const u8 *ssid, int ssid_len);
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++int wpa_driver_nl80211_sta_report(void *priv, const u8 *ssid, int ssid_len);
++#endif
++int wpa_driver_nl80211_set_max_sta(void *priv, int num);
++int wpa_driver_nl80211_set_wps_ie(void *priv,
++                                     const struct wpabuf *beacon,
++					     const struct wpabuf *proberesp,
++					     const struct wpabuf *assocresp);
++int wpa_driver_nl80211_set_frag(void *priv, int frag);
++int wpa_driver_nl80211_set_rts(void *priv,  int rts);
++
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH
++int wpa_driver_nl80211_sta_auth(void *priv, const u8 *own_addr, const u8 *addr,
++			 u16 seq, u16 status, const u8 *ie, size_t len);
++int wpa_driver_nl80211_sta_assoc(void *priv, const u8 *own_addr, const u8 *addr,
++			  int reassoc, u16 status, const u8 *ie, size_t len);
++#endif
++#endif /* __CONNECTIVITY_PATCH_H */
++
++#ifdef __cplusplus
++    #if __cplusplus
++        }
++    #endif
++#endif
+diff -uprN a/src/connectivity_patch/Makefile b/src/connectivity_patch/Makefile
+--- a/src/connectivity_patch/Makefile	1970-01-01 08:00:00.000000000 +0800
++++ b/src/connectivity_patch/Makefile	2022-11-15 16:15:58.036861862 +0800
+@@ -0,0 +1,8 @@
++all:
++	@echo Nothing to be made.
++
++clean:
++	rm -f *~ *.o *.d
++
++install:
++	@echo Nothing to be made.
+diff -uprN a/src/connectivity_patch/README b/src/connectivity_patch/README
+--- a/src/connectivity_patch/README	1970-01-01 08:00:00.000000000 +0800
++++ b/src/connectivity_patch/README	2022-11-15 16:15:58.036861862 +0800
+@@ -0,0 +1,13 @@
++===========================================================
++This document describes what features are inclue in the 
++rebased-v2.6-0009-connectivity.patch, and how to use them
++appropriately.
++-CONFIG_CONNECTIVITY_PATCH
++-CONFIG_CONNECTIVITY_TASKSET_THREAD
++-CONFIG_SEC_ONLY
++-CONFIG_ONT_WPS_PATCH
++--------------------------------------
++Attention: CONFIG_SEC_ONLY is a feature currently only use
++in ONT project that make hostapd running only security
++functions(no set mode/country etc). So if you need original
++hostapd feature. Do disable this feature after patch!!!
+diff -uprN a/src/crypto/crypto_openssl.c b/src/crypto/crypto_openssl.c
+--- a/src/crypto/crypto_openssl.c	2022-11-15 16:24:45.224845700 +0800
++++ b/src/crypto/crypto_openssl.c	2022-11-15 16:15:58.036861862 +0800
+@@ -289,6 +289,7 @@ int des_encrypt(const u8 *clear, const u
+ int rc4_skip(const u8 *key, size_t keylen, size_t skip,
+ 	     u8 *data, size_t data_len)
+ {
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ #ifdef OPENSSL_NO_RC4
+ 	return -1;
+ #else /* OPENSSL_NO_RC4 */
+@@ -324,6 +325,48 @@ out:
+ 		EVP_CIPHER_CTX_free(ctx);
+ 	return res;
+ #endif /* OPENSSL_NO_RC4 */
++#else   /* CONFIG_CONNECTIVITY_PATCH */
++{/* */
++#define S_SWAP(a,b) do { u8 t = S[a]; S[a] = S[b]; S[b] = t; } while(0)
++
++	u32 i, j, k;
++	u8 S[256], *pos;
++	size_t kpos;
++
++	/* Setup RC4 state */
++	for (i = 0; i < 256; i++)
++		S[i] = i;
++	j = 0;
++	kpos = 0;
++	for (i = 0; i < 256; i++) {
++		j = (j + S[i] + key[kpos]) & 0xff;
++		kpos++;
++		if (kpos >= keylen)
++			kpos = 0;
++		S_SWAP(i, j);
++	}
++
++	/* Skip the start of the stream */
++	i = j = 0;
++	for (k = 0; k < skip; k++) {
++		i = (i + 1) & 0xff;
++		j = (j + S[i]) & 0xff;
++		S_SWAP(i, j);
++	}
++
++	/* Apply RC4 to data */
++	pos = data;
++	for (k = 0; k < data_len; k++) {
++		i = (i + 1) & 0xff;
++		j = (j + S[i]) & 0xff;
++		S_SWAP(i, j);
++		*pos++ ^= S[(S[i] + S[j]) & 0xff];
++	}
++#undef S_SWAP
++	return 0;
++}
++
++#endif  /* CONFIG_CONNECTIVITY_PATCH */
+ }
+ #endif /* CONFIG_NO_RC4 */
+ 
+diff -uprN a/src/crypto/random.c b/src/crypto/random.c
+--- a/src/crypto/random.c	2022-11-15 16:24:45.224845700 +0800
++++ b/src/crypto/random.c	2022-11-15 16:15:58.036861862 +0800
+@@ -255,7 +255,11 @@ int random_pool_ready(void)
+ 	res = -1;
+ #endif /* CONFIG_GETRANDOM */
+ 	if (res < 0) {
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    	fd = open("/dev/urandom", O_RDONLY | O_NONBLOCK);
++#else	
+ 		fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
++#endif		
+ 		if (fd < 0) {
+ 			wpa_printf(MSG_ERROR,
+ 				   "random: Cannot open /dev/random: %s",
+@@ -451,7 +455,11 @@ void random_init(const char *entropy_fil
+ 	}
+ #endif /* CONFIG_GETRANDOM */
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    random_fd = open("/dev/urandom", O_RDONLY | O_NONBLOCK);
++#else
+ 	random_fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
++#endif
+ 	if (random_fd < 0) {
+ 		wpa_printf(MSG_ERROR, "random: Cannot open /dev/random: %s",
+ 			   strerror(errno));
+diff -uprN a/src/drivers/driver.h b/src/drivers/driver.h
+--- a/src/drivers/driver.h	2022-11-15 16:24:45.208845701 +0800
++++ b/src/drivers/driver.h	2023-04-10 17:23:56.789829830 +0800
+@@ -3225,6 +3225,19 @@ struct wpa_driver_ops {
+ 	int (*hapd_set_ssid)(void *priv, const u8 *buf, int len);
+ 
+ 	/**
++	 * sta_report - Set SSID (AP only)
++	 * @priv: Private driver interface data
++	 * @buf: SSID
++	 * @len: Length of the SSID in octets
++	 * Returns: 0 on success, -1 on failure
++	 *
++	 * DEPRECATED - use set_ap() instead
++	 */
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL 
++    int (*sta_report)(void *priv, const u8 *buf, int len);
++#endif
++
++	/**
+ 	 * hapd_set_countermeasures - Enable/disable TKIP countermeasures (AP)
+ 	 * @priv: Private driver interface data
+ 	 * @enabled: 1 = countermeasures enabled, 0 = disabled
+diff -uprN a/src/drivers/driver_nl80211.c b/src/drivers/driver_nl80211.c
+--- a/src/drivers/driver_nl80211.c	2022-11-15 16:24:45.208845701 +0800
++++ b/src/drivers/driver_nl80211.c	2023-08-03 11:06:53.671510994 +0800
+@@ -35,7 +35,10 @@
+ #include "radiotap_iter.h"
+ #include "rfkill.h"
+ #include "driver_nl80211.h"
+-
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include <linux/version.h>
++#include "../connectivity_patch/connectivity_patch.h"
++#endif
+ 
+ #ifndef NETLINK_CAP_ACK
+ #define NETLINK_CAP_ACK 10
+@@ -1795,6 +1798,7 @@ static void wpa_driver_nl80211_event_rec
+  */
+ static int wpa_driver_nl80211_set_country(void *priv, const char *alpha2_arg)
+ {
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	struct i802_bss *bss = priv;
+ 	struct wpa_driver_nl80211_data *drv = bss->drv;
+ 	char alpha2[3];
+@@ -1816,6 +1820,11 @@ static int wpa_driver_nl80211_set_countr
+ 	if (send_and_recv_msgs(drv, msg, NULL, NULL, NULL, NULL))
+ 		return -EINVAL;
+ 	return 0;
++#else /* CONFIG_CONNECTIVITY_PATCH */
++    int ret;
++    ret = wpa_driver_nl80211_set_country_code(priv, alpha2_arg);
++    return ret;
++#endif /* CONFIG_CONNECTIVITY_PATCH */
+ }
+ 
+ 
+@@ -4176,7 +4185,9 @@ static int wpa_driver_nl80211_set_acl(vo
+ 	struct nl_msg *acl;
+ 	unsigned int i;
+ 	int ret;
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	size_t acl_nla_sz, acl_nlmsg_sz, nla_sz, nlmsg_sz;
++#endif
+ 
+ 	if (!(drv->capa.max_acl_mac_addrs))
+ 		return -ENOTSUP;
+@@ -4187,9 +4198,13 @@ static int wpa_driver_nl80211_set_acl(vo
+ 	wpa_printf(MSG_DEBUG, "nl80211: Set %s ACL (num_mac_acl=%u)",
+ 		   params->acl_policy ? "Accept" : "Deny", params->num_mac_acl);
+ 
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	acl_nla_sz = nla_total_size(ETH_ALEN) * params->num_mac_acl;
+ 	acl_nlmsg_sz = nlmsg_total_size(acl_nla_sz);
+ 	acl = nlmsg_alloc_size(acl_nlmsg_sz);
++#else
++	acl = nlmsg_alloc();
++#endif
+ 	if (!acl)
+ 		return -ENOMEM;
+ 	for (i = 0; i < params->num_mac_acl; i++) {
+@@ -4205,11 +4220,15 @@ static int wpa_driver_nl80211_set_acl(vo
+ 	 * u32 attr: NL80211_ATTR_ACL_POLICY +
+ 	 * nested acl attr
+ 	 */
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	nla_sz = GENL_HDRLEN +
+ 		nla_total_size(4) * 2 +
+ 		nla_total_size(acl_nla_sz);
+ 	nlmsg_sz = nlmsg_total_size(nla_sz);
+ 	if (!(msg = nl80211_ifindex_msg_build(drv, nlmsg_alloc_size(nlmsg_sz),
++#else
++	if (!(msg = nl80211_ifindex_msg_build(drv, nlmsg_alloc(),
++#endif
+ 					      drv->ifindex, 0,
+ 					      NL80211_CMD_SET_MAC_ACL)) ||
+ 	    nla_put_u32(msg, NL80211_ATTR_ACL_POLICY, params->acl_policy ?
+@@ -6953,6 +6972,7 @@ static int i802_get_seqnum(const char *i
+ 
+ static int i802_set_rts(void *priv, int rts)
+ {
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	struct i802_bss *bss = priv;
+ 	struct wpa_driver_nl80211_data *drv = bss->drv;
+ 	struct nl_msg *msg;
+@@ -6976,11 +6996,17 @@ static int i802_set_rts(void *priv, int
+ 	wpa_printf(MSG_DEBUG, "nl80211: Failed to set RTS threshold %d: "
+ 		   "%d (%s)", rts, ret, strerror(-ret));
+ 	return ret;
++#else   /* CONFIG_CONNECTIVITY_PATCH */
++    int ret = -ENOBUFS;
++    ret = wpa_driver_nl80211_set_rts(priv, rts);
++    return ret;
++#endif  /* CONFIG_CONNECTIVITY_PATCH */
+ }
+ 
+ 
+ static int i802_set_frag(void *priv, int frag)
+ {
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ 	struct i802_bss *bss = priv;
+ 	struct wpa_driver_nl80211_data *drv = bss->drv;
+ 	struct nl_msg *msg;
+@@ -7004,6 +7030,11 @@ static int i802_set_frag(void *priv, int
+ 	wpa_printf(MSG_DEBUG, "nl80211: Failed to set fragmentation threshold "
+ 		   "%d: %d (%s)", frag, ret, strerror(-ret));
+ 	return ret;
++#else   /* CONFIG_CONNECTIVITY_PATCH */
++    int ret = -ENOBUFS;
++    ret = wpa_driver_nl80211_set_frag(priv, frag);
++    return ret;
++#endif  /* CONFIG_CONNECTIVITY_PATCH */
+ }
+ 
+ 
+@@ -7608,6 +7639,9 @@ static void handle_eapol(int sock, void
+ 	unsigned char buf[3000];
+ 	int len;
+ 	socklen_t fromlen = sizeof(lladdr);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    char if_name[IFNAMSIZ] = {'\0'};
++#endif
+ 
+ 	len = recvfrom(sock, buf, sizeof(buf), 0,
+ 		       (struct sockaddr *)&lladdr, &fromlen);
+@@ -7617,6 +7651,11 @@ static void handle_eapol(int sock, void
+ 		return;
+ 	}
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    wpa_printf(MSG_INFO, "nl80211: EAPOL recv from: %s",
++        if_indextoname(lladdr.sll_ifindex, if_name));
++#endif
++
+ 	if (have_ifidx(drv, lladdr.sll_ifindex, IFIDX_ANY))
+ 		drv_event_eapol_rx(drv->ctx, lladdr.sll_addr, buf, len);
+ }
+@@ -12137,6 +12176,18 @@ const struct wpa_driver_ops wpa_driver_n
+ 	.get_bssid = wpa_driver_nl80211_get_bssid,
+ 	.get_ssid = wpa_driver_nl80211_get_ssid,
+ 	.set_key = driver_nl80211_set_key,
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    .set_authmode = wpa_driver_nl80211_set_authmode,
++    .hapd_set_ssid = wpa_driver_nl80211_set_ssid,
++    .set_ap_wps_ie = wpa_driver_nl80211_set_wps_ie,    //Attention!!! Would conflict once ANDROID_P2P also enabled in newer version
++#ifdef _PRE_WLAN_REPORT_WIFI_ABNORMAL
++    .sta_report    = wpa_driver_nl80211_sta_report,
++#endif
++#endif
++#ifdef CONFIG_CONNECTIVITY_11R_PATCH //不同内核版本，接口是否不一样
++    .sta_auth = wpa_driver_nl80211_sta_auth,
++    .sta_assoc = wpa_driver_nl80211_sta_assoc,
++#endif
+ 	.scan2 = driver_nl80211_scan2,
+ 	.sched_scan = wpa_driver_nl80211_sched_scan,
+ 	.stop_sched_scan = wpa_driver_nl80211_stop_sched_scan,
+diff -uprN a/src/drivers/driver_nl80211_capa.c b/src/drivers/driver_nl80211_capa.c
+--- a/src/drivers/driver_nl80211_capa.c	2022-11-15 16:24:45.208845701 +0800
++++ b/src/drivers/driver_nl80211_capa.c	2022-11-15 16:15:58.036861862 +0800
+@@ -1392,6 +1392,9 @@ int wpa_driver_nl80211_capa(struct wpa_d
+ 	drv->capa.flags |= WPA_DRIVER_FLAGS_VALID_ERROR_CODES;
+ 	drv->capa.flags |= WPA_DRIVER_FLAGS_SET_KEYS_AFTER_ASSOC_DONE;
+ 	drv->capa.flags |= WPA_DRIVER_FLAGS_EAPOL_TX_STATUS;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    drv->capa.flags |= WPA_DRIVER_FLAGS_AP_UAPSD;   //UAPSD 标志开 (hostapd)
++#endif
+ 
+ 	/*
+ 	 * As all cfg80211 drivers must support cases where the AP interface is
+diff -uprN a/src/drivers/driver_nl80211_event.c b/src/drivers/driver_nl80211_event.c
+--- a/src/drivers/driver_nl80211_event.c	2022-11-15 16:24:45.208845701 +0800
++++ b/src/drivers/driver_nl80211_event.c	2023-08-05 13:02:54.656953732 +0800
+@@ -19,7 +19,9 @@
+ #include "common/ieee802_11_defs.h"
+ #include "common/ieee802_11_common.h"
+ #include "driver_nl80211.h"
+-
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "../connectivity_patch/connectivity_patch.h"
++#endif
+ 
+ static void
+ nl80211_control_port_frame_tx_status(struct wpa_driver_nl80211_data *drv,
+@@ -1550,6 +1552,25 @@ static void nl80211_new_station_event(st
+ 			ies = nla_data(tb[NL80211_ATTR_IE]);
+ 			ies_len = nla_len(tb[NL80211_ATTR_IE]);
+ 		}
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		else
++		{
++            assoc_req_ie_stru assoc_req_ie;
++			int               ret;
++
++			ret = wpa_driver_nl80211_get_sta_assoc_req_ie(bss, (const u8 *)addr, &assoc_req_ie, sizeof(assoc_req_ie));
++			if (ret)
++			{
++				wpa_printf(MSG_DEBUG, "can not get sta assoc request ie\n");
++				return;
++			}
++
++			ies     = assoc_req_ie.ie;
++			ies_len = assoc_req_ie.len;
++			wpa_printf(MSG_DEBUG, "get sta assoc request ie: len = %d\n", ies_len);
++		}
++#endif  /* CONFIG_CONNECTIVITY_PATCH */
++
+ 		wpa_hexdump(MSG_DEBUG, "nl80211: Assoc Req IEs", ies, ies_len);
+ 		drv_event_assoc(bss->ctx, addr, ies, ies_len, 0);
+ 		return;
+@@ -2833,6 +2854,30 @@ static void nl80211_control_port_frame(s
+ 	}
+ }
+ 
++static void nl80211_detect_sta_event(struct wpa_driver_nl80211_data *drv,
++						struct nlattr **tb)
++{
++	u8 *src_addr;
++	u8 channel;
++	s8 signal;
++	char ubus_buf[1024] = {0};
++
++	if (!tb[NL80211_ATTR_MAC] ||
++		!tb[NL80211_ATTR_WIPHY_FREQ] ||
++		!tb[NL80211_STA_INFO_SIGNAL])
++		return;
++
++	src_addr = nla_data(tb[NL80211_ATTR_MAC]);
++	channel = nla_get_u8(tb[NL80211_ATTR_WIPHY_FREQ]);
++	signal = nla_get_u8(tb[NL80211_STA_INFO_SIGNAL]) - 100;
++
++	wpa_printf(MSG_INFO, "nl80211: sta mac: "
++				MACSTR " channel:%d signal:%d",
++				MAC2STR(src_addr), channel, signal);
++
++	sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=unassoc_sta\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\",\"CHANNEL=%d\",\"SIGNAL=%d\"]}'", MAC2STR(src_addr), channel, signal);
++	system(ubus_buf);
++}
+ 
+ static void
+ nl80211_control_port_frame_tx_status(struct wpa_driver_nl80211_data *drv,
+@@ -2973,6 +3018,9 @@ static void do_process_drv_event(struct
+ 	case NL80211_CMD_FRAME_TX_STATUS:
+ 	case NL80211_CMD_UNPROT_DEAUTHENTICATE:
+ 	case NL80211_CMD_UNPROT_DISASSOCIATE:
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    case NL80211_CMD_FRAME:
++#endif
+ 		mlme_event(bss, cmd, tb[NL80211_ATTR_FRAME],
+ 			   tb[NL80211_ATTR_MAC], tb[NL80211_ATTR_TIMED_OUT],
+ 			   tb[NL80211_ATTR_WIPHY_FREQ], tb[NL80211_ATTR_ACK],
+@@ -3105,6 +3153,9 @@ static void do_process_drv_event(struct
+ 						     tb[NL80211_ATTR_ACK],
+ 						     tb[NL80211_ATTR_COOKIE]);
+ 		break;
++	case NL80211_CMD_STA_DETECTED:
++		nl80211_detect_sta_event(drv, tb);
++		break;
+ 	default:
+ 		wpa_dbg(drv->ctx, MSG_DEBUG, "nl80211: Ignored unknown event "
+ 			"(cmd=%d)", cmd);
+diff -uprN a/src/drivers/nl80211_copy.h b/src/drivers/nl80211_copy.h
+--- a/src/drivers/nl80211_copy.h	2022-11-15 16:24:45.208845701 +0800
++++ b/src/drivers/nl80211_copy.h	2023-08-05 13:03:08.974161811 +0800
+@@ -1417,7 +1417,16 @@ enum nl80211_commands {
+ 
+ 	NL80211_CMD_SET_SAR_SPECS,
+ 
++	NL80211_CMD_OBSS_COLOR_COLLISION,
++
++	NL80211_CMD_COLOR_CHANGE_REQUEST,
++
++	NL80211_CMD_COLOR_CHANGE_STARTED,
++	NL80211_CMD_COLOR_CHANGE_ABORTED,
++	NL80211_CMD_COLOR_CHANGE_COMPLETED,
++
+ 	/* add new commands above here */
++	NL80211_CMD_STA_DETECTED,
+ 
+ 	/* used to define NL80211_CMD_MAX below */
+ 	__NL80211_CMD_AFTER_LAST,
+diff -uprN a/src/eap_server/eap_server_wsc.c b/src/eap_server/eap_server_wsc.c
+--- a/src/eap_server/eap_server_wsc.c	2022-11-15 16:24:45.224845700 +0800
++++ b/src/eap_server/eap_server_wsc.c	2023-04-10 17:24:41.485033173 +0800
+@@ -14,6 +14,9 @@
+ #include "eap_common/eap_wsc_common.h"
+ #include "p2p/p2p.h"
+ #include "wps/wps.h"
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "connectivity_patch/connectivity_patch.h"
++#endif
+ 
+ 
+ struct eap_wsc_data {
+@@ -436,11 +439,17 @@ static void eap_wsc_process(struct eap_s
+ 	}
+ 
+ 	res = wps_process_msg(data->wps, op_code, data->in_buf);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++    wps_procedure_state = res;
++#endif
+ 	switch (res) {
+ 	case WPS_DONE:
+ 		wpa_printf(MSG_DEBUG, "EAP-WSC: WPS processing completed "
+ 			   "successfully - report EAP failure");
+ 		eap_wsc_state(data, FAIL);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		system("wps_led.sh on");
++#endif
+ 		break;
+ 	case WPS_CONTINUE:
+ 		eap_wsc_state(data, MESG);
+@@ -448,6 +457,9 @@ static void eap_wsc_process(struct eap_s
+ 	case WPS_FAILURE:
+ 		wpa_printf(MSG_DEBUG, "EAP-WSC: WPS processing failed");
+ 		eap_wsc_state(data, FAIL);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		system("wps_led.sh off");
++#endif
+ 		break;
+ 	case WPS_PENDING:
+ 		eap_wsc_state(data, MESG);
+diff -uprN a/src/Makefile b/src/Makefile
+--- a/src/Makefile	2022-11-15 16:24:45.208845701 +0800
++++ b/src/Makefile	2022-11-15 16:15:58.020861862 +0800
+@@ -1,5 +1,6 @@
+ SUBDIRS=ap common crypto drivers eapol_auth eapol_supp eap_common eap_peer eap_server l2_packet p2p pae radius rsn_supp tls utils wps
+ SUBDIRS += fst
++SUBDIRS += connectivity_patch
+ 
+ all:
+ 	for d in $(SUBDIRS); do [ -d $$d ] && $(MAKE) -C $$d; done
+diff -uprN a/src/utils/wpa_debug.c b/src/utils/wpa_debug.c
+--- a/src/utils/wpa_debug.c	2022-11-15 16:24:45.216845701 +0800
++++ b/src/utils/wpa_debug.c	2022-11-15 16:15:58.024861862 +0800
+@@ -26,6 +26,9 @@ static FILE *wpa_debug_tracing_file = NU
+ #define WPAS_TRACE_PFX "wpas <%d>: "
+ #endif /* CONFIG_DEBUG_LINUX_TRACING */
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include <sys/stat.h>
++#endif /* CONFIG_CONNECTIVITY_PATCH */
+ 
+ int wpa_debug_level = MSG_INFO;
+ int wpa_debug_show_keys = 0;
+@@ -63,6 +66,26 @@ static int wpa_to_android_level(int leve
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <fcntl.h>
++#ifdef CONFIG_CONNECTIVITY_PATCH
++static char *last_path = NULL;
++
++/* 定义log 文件大小，修改大小为300k */
++unsigned long g_wpa_debug_log_file_size = (300*1024);
++unsigned long wpa_debug_get_file_size(const char *path)
++{
++    unsigned long filesize = -1;
++    struct stat statbuff;
++    if(stat(path, &statbuff) < 0)
++    {
++        return filesize;
++    }
++    else
++    {
++        filesize = statbuff.st_size;
++    }
++    return filesize;
++}
++#endif /* CONFIG_CONNECTIVITY_PATCH */
+ #endif /* CONFIG_DEBUG_FILE */
+ 
+ 
+@@ -224,6 +247,51 @@ void _wpa_printf(int level, const char *
+ 			va_end(ap);
+ 		}
+ #endif /* CONFIG_DEBUG_SYSLOG */
++
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#ifdef CONFIG_DEBUG_FILE
++                if (out_file)
++                {
++                    /* 如果log 文件大于规定大小，则将log 文件备份为 last_path.tar.gz */
++                    /* 然后重新从头开始记录log 到last_path 中 */
++                    /* 例如原来的log 文件名为hostapd.log， 备份为hostapd.log.tar.gz */
++                    /* 重新重头开始记录log 到hostapd.log 中 */
++                    unsigned long filesize;
++                    filesize = wpa_debug_get_file_size(last_path);
++
++                    if ((filesize != -1) && (filesize > g_wpa_debug_log_file_size))
++                    {
++                        /* 备份log 文件 */
++                        char    cmd[128];
++
++                        /* 修改原来直接cp保存为.bak方式为压缩备份 */
++                        //char last_path_bak[64] = {0};
++                        //sprintf(last_path_bak, "%s.bak", last_path);
++
++                        /* 清空原log.tar.gz 文件内容,可以不需要执行，直接压缩会覆盖 */
++                        //snprintf(cmd, sizeof(cmd), "rm %s.tar.gz", last_path);
++                        //system(cmd);
++                        snprintf(cmd, sizeof(cmd), "tar zcvf %s.tar.gz %s", last_path, last_path);
++                        system(cmd);
++                        /* 清空原log 文件内容 */
++                        snprintf(cmd, sizeof(cmd), "rm %s", last_path);
++                        system(cmd);
++                        snprintf(cmd, sizeof(cmd), "touch %s", last_path);
++                        system(cmd);
++                        /* 重新打开log 文件 */
++                        if (wpa_debug_reopen_file() < 0)
++                        {
++                            printf("%s[%d]: wpa_debug_reopen_file failed!\r\n", __func__, __LINE__);
++                         }
++                    }
++                    else
++                    {
++                        //printf("%s[%d]: get log file size failed!\r\n", __func__, __LINE__);
++                    }
++                }
++#endif /* CONFIG_DEBUG_FILE */
++#endif /* CONFIG_CONNECTIVITY_PATCH */
++
+ 		wpa_debug_print_timestamp();
+ #ifdef CONFIG_DEBUG_FILE
+ 		if (out_file) {
+@@ -495,9 +563,11 @@ file_done:
+ }
+ 
+ 
++#ifndef CONFIG_CONNECTIVITY_PATCH
+ #ifdef CONFIG_DEBUG_FILE
+ static char *last_path = NULL;
+ #endif /* CONFIG_DEBUG_FILE */
++#endif
+ 
+ int wpa_debug_reopen_file(void)
+ {
+diff -uprN a/src/wps/wps_defs.h b/src/wps/wps_defs.h
+--- a/src/wps/wps_defs.h	2022-11-15 16:24:45.220845701 +0800
++++ b/src/wps/wps_defs.h	2023-04-10 17:25:14.528127949 +0800
+@@ -51,6 +51,19 @@ extern u16 wps_force_encr_types;
+ #define WPS_MODEL_NUMBER_MAX_LEN 32
+ #define WPS_SERIAL_NUMBER_MAX_LEN 32
+ 
++#ifdef CONFIG_ONT_WPS_PATCH
++typedef enum
++{
++    WPS_STATUS_NO_DEVICE_ACCESS = 0, // 0:已进入wps配置,但尚未有设备接入
++    WPS_STATUS_START_FAILED,         // 1:wps启动失败
++    WPS_STATUS_DEVICE_ACCESSED,      // 2:有设备接入
++    WPS_STATUS_CONNECT_TIMEOUT,      // 3:超时关闭,未有设备接入
++    WPS_STATUS_IDLE,                 // 4:wps未启动
++
++    WPS_STATUS_BUTT
++}WPS_STATUS;
++#endif
++
+ /* Attribute Types */
+ enum wps_attribute {
+ 	ATTR_AP_CHANNEL = 0x1001,
+diff -uprN a/src/wps/wps_registrar.c b/src/wps/wps_registrar.c
+--- a/src/wps/wps_registrar.c	2022-11-15 16:24:45.220845701 +0800
++++ b/src/wps/wps_registrar.c	2023-07-05 15:24:30.823444039 +0800
+@@ -22,6 +22,9 @@
+ #include "wps_dev_attr.h"
+ #include "wps_upnp.h"
+ #include "wps_upnp_i.h"
++#ifdef CONFIG_CONNECTIVITY_PATCH
++#include "connectivity_patch/connectivity_patch.h"
++#endif
+ 
+ #ifndef CONFIG_WPS_STRICT
+ #define WPS_WORKAROUNDS
+@@ -1026,6 +1029,10 @@ static void wps_registrar_pbc_timeout(vo
+ 	wpa_printf(MSG_DEBUG, "WPS: PBC timed out - disable PBC mode");
+ 	wps_pbc_timeout_event(reg->wps);
+ 	wps_registrar_stop_pbc(reg);
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	wps_procedure_state = WPS_FAILURE;
++	system("wps_led.sh off");
++#endif
+ }
+ 
+ 
+@@ -1065,6 +1072,9 @@ int wps_registrar_button_pushed(struct w
+ 					 (u8 *) "\xff\xff\xff\xff\xff\xff");
+ 	wps_registrar_selected_registrar_changed(reg, 0);
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	system("wps_led.sh blink");
++#endif
+ 	wps_pbc_active_event(reg->wps);
+ 	eloop_cancel_timeout(wps_registrar_set_selected_timeout, reg, NULL);
+ 	eloop_cancel_timeout(wps_registrar_pbc_timeout, reg, NULL);
+@@ -3474,6 +3484,11 @@ static void wps_registrar_set_selected_t
+ 	reg->pbc = 0;
+ 	wps_registrar_expire_pins(reg);
+ 	wps_registrar_selected_registrar_changed(reg, 0);
++
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	wps_procedure_state = WPS_FAILURE;
++	system("wps_led.sh off");
++#endif
+ }
+ 
+ 
+diff -uprN a/wpa_supplicant/Makefile b/wpa_supplicant/Makefile
+--- a/wpa_supplicant/Makefile	2022-11-15 16:24:45.232845700 +0800
++++ b/wpa_supplicant/Makefile	2022-11-16 19:59:18.741182732 +0800
+@@ -1789,6 +1789,11 @@ CFLAGS += -DCONFIG_AUTOSCAN
+ OBJS += autoscan.o
+ endif
+ 
++ifdef CONFIG_CONNECTIVITY_PATCH
++CFLAGS += -DCONFIG_CONNECTIVITY_PATCH
++OBJS += ../src/connectivity_patch/connectivity_patch.o
++endif
++
+ ifdef CONFIG_EXT_PASSWORD_TEST
+ OBJS += ../src/utils/ext_password_test.o
+ CFLAGS += -DCONFIG_EXT_PASSWORD_TEST

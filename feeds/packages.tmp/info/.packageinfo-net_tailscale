@@ -1,0 +1,48 @@
+Source-Makefile: feeds/packages/net/tailscale/Makefile
+Build-Depends: golang/host
+
+Package: tailscale
+Submenu: VPN
+Version: 1.24.2-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64) +tailscaled
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Zero config VPN (utility)
+Maintainer: Jan Pavlinec <jan.pavlinec1@gmail.com>
+Source: tailscale-1.24.2.tar.gz
+License: BSD-3-Clause
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   It creates a secure network between your servers, computers,
+  and cloud instances. Even when separated by firewalls or subnets.
+https://tailscale.com
+Jan Pavlinec <jan.pavlinec1@gmail.com>
+@@
+
+Package: tailscaled
+Submenu: VPN
+Version: 1.24.2-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64) +ca-bundle +kmod-tun
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Zero config VPN (daemon)
+Maintainer: Jan Pavlinec <jan.pavlinec1@gmail.com>
+Source: tailscale-1.24.2.tar.gz
+License: BSD-3-Clause
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   It creates a secure network between your servers, computers,
+  and cloud instances. Even when separated by firewalls or subnets.
+https://tailscale.com
+Jan Pavlinec <jan.pavlinec1@gmail.com>
+@@
+
+

@@ -1,0 +1,134 @@
+# easycwmp uci configuration
+
+config local
+	option enable '1'
+	option interface eth0
+	option port 7547
+	option ubus_socket /var/run/ubus/ubus.sock
+	option date_format %FT%T%z
+	option username easycwmp
+	option password easycwmp
+#  enable connection request. By default http connection request is enabled
+#	option enable_connection_request 1	
+	option provisioning_code ''
+#basic authentication = 'Basic', Digest authentication = 'Digest', Default value = 'Digest'
+	option authentication 'Digest'
+	option session_timeout '30'
+#Logging levels: Critic=0, Warning=1, Notice=2, Info=3, Debug=4
+	option logging_level '3'
+	option periodic_check_notify_enable '1'
+	option periodic_check_notify_interval '15'
+	option max_history_event '20'
+	option max_current_alarm '20'
+	option max_expedited_event '20'
+	option max_queued_event '20'
+
+config acs
+	option url http://192.168.1.110:8080/openacs/acs
+	option username easycwmp
+	option password easycwmp
+	option parameter_key ''
+	option periodic_enable '1'
+	option periodic_interval '100'
+	option periodic_time '0001-01-01T00:00:00Z'
+	option alias_support '0'
+	option changedustate_enable '0'
+# disable http100 continue. By default http 100 continue is enabled
+#	option http100continue_disable 1
+# IP resolve type. Possible values: FORCE_IPV6, FORCE_IPV4, PRIORITY_IPV6, PRIORITY_IPV4
+	option ipresolve 'FORCE_IPV4'
+# enable verify cert peer. By default verify peer is not enabled
+#	option ssl_verify enabled
+# ca info file path used in the check of verify peer
+#	option ssl_cacert '/etc/cacert'
+# cert file path used in the check of verify peer
+#	option ssl_cert '/etc/cert'
+	option retry_min_wait_interval '5'
+	option retry_interval_multiplier '2000'
+#http compression config: Disabled, GZIP, Deflate
+	option http_compression 'Disabled'
+	option heart_interval '45'
+	option heart_time '0001-01-01T00:00:00Z'
+	option heart_enable '1'
+# cwmp_version: use value '4' to support Amendment 6.
+# The ACS should support cwmp version 1-4 or at least should support cwmp version negotiation
+	option cwmp_version '2'
+
+config device
+	option manufacturer easycwmp
+	option oui 012345
+	option product_class easycwmp
+	option serial_number 8C16451AF919
+	option hardware_version example_hw_version
+	option software_version example_sw_version
+
+config lwn
+	option enable '1'
+	option hostname ''
+	option port ''
+	
+# list of forced inform for tr-181
+config inform_forced
+	list parameter 'Device.DeviceInfo.ProvisioningCode'
+	list parameter 'Device.DeviceInfo.HardwareVersion'
+	list parameter 'Device.DeviceInfo.SoftwareVersion'
+	list parameter 'Device.ManagementServer.ConnectionRequestURL'
+	list parameter 'Device.ManagementServer.ParameterKey'
+	list parameter 'Device.ManagementServer.AliasBasedAddressing'
+	list parameter 'Device.RootDataModelVersion'
+
+# list of forced inform for tr-098
+#config inform_forced
+#	list parameter 'InternetGatewayDevice.DeviceSummary'
+#	list parameter 'InternetGatewayDevice.DeviceInfo.HardwareVersion'
+#	list parameter 'InternetGatewayDevice.DeviceInfo.SoftwareVersion'
+#	list parameter 'InternetGatewayDevice.DeviceInfo.SpecVersion'
+#	list parameter 'InternetGatewayDevice.DeviceInfo.ProvisioningCode'
+#	list parameter 'InternetGatewayDevice.ManagementServer.ParameterKey'
+#	list parameter 'InternetGatewayDevice.ManagementServer.ConnectionRequestURL'
+#	list parameter 'InternetGatewayDevice.ManagementServer.AliasBasedAddressing'
+#	list parameter 'InternetGatewayDevice.WANDevice.*.WANConnectionDevice.*.WANIPConnection.*.ExternalIPAddress'
+#	list parameter 'InternetGatewayDevice.WANDevice.*.WANConnectionDevice.*.WANPPPConnection.*.ExternalIPAddress'
+
+# list of forced notification for tr-181
+config notifications_forced
+	list active 'Device.DeviceInfo.SoftwareVersion'
+	list active 'Device.DeviceInfo.ProvisioningCode'
+	
+# list of forced notification for tr-098
+#config notifications_forced
+#	list active 'InternetGatewayDevice.DeviceInfo.SoftwareVersion'
+#	list active 'InternetGatewayDevice.DeviceInfo.ProvisioningCode'
+
+# list of notification for tr-181
+config notifications
+	list active 'Device.ManagementServer.ConnectionRequestURL'
+	list active 'Device.ManagementServer.ConnReqJabberID'
+	list active 'Device.SoftwareModules.ExecutionUnit.*.Status'
+	list active 'Device.FaultMgmt.ExpeditedEvent.'
+	list passive 'Device.FaultMgmt.QueuedEvent.'
+	
+# list of notification for tr-098
+#config notifications
+#	list active 'InternetGatewayDevice.ManagementServer.ConnectionRequestURL'
+#	list active 'InternetGatewayDevice.ManagementServer.ConnReqJabberID'
+#	list active 'InternetGatewayDevice.WANDevice.*.WANConnectionDevice.*.WANIPConnection.*.ExternalIPAddress'
+#	list active 'InternetGatewayDevice.WANDevice.*.WANConnectionDevice.*.WANPPPConnection.*.ExternalIPAddress'
+#	list active 'InternetGatewayDevice.SoftwareModules.ExecutionUnit.*.Status'
+
+##Examples of supported alarms configuration
+#config sup_alarm
+##Possible value of mechanism : "0 Expedited,1 Queued,2 Logged,3 Disabled"
+#	option reporting_mechanism '1 Queued'
+#	option sup_alarm_instance '1'
+#	option event_type 'Alarm'
+#	option probable_cause 'application problem'
+#	option specific_problem 'network application problem'
+#	option perceived_severity 'Minor'
+#config sup_alarm
+#	option reporting_mechanism '0 Expedited'
+#	option sup_alarm_instance '2'
+#	option event_type 'Event'
+#	option probable_cause 'system problem'
+#	option specific_problem 'crash system problem'
+#	option perceived_severity 'Critical'

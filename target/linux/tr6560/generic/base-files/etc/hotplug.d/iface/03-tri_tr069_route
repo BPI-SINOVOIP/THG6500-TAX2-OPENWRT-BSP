@@ -1,0 +1,37 @@
+. /lib/functions/network.sh
+
+UCI_GET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} get"
+str_interface=`$UCI_GET easycwmp.@local[0].interface`
+str_url=`$UCI_GET easycwmp.@acs[0].url`
+str_ip=$(echo ${str_url} | awk -F'[/:]' '{print $4}')
+rule="^[0-9]\{1,3\}\.\([0-9]\{1,3\}\.\)\{2\}[0-9]\{1,3\}$"
+reval=$(echo $str_ip | grep -o ${rule})
+if [ "$str_ip" == "$reval" ]; then
+        logger -t tr069_routeadd " ${str_ip} is ip! "
+else
+        logger -t tr069_routeadd " ${str_ip} not is ip! "
+        str_ip=$(ping ${str_ip} -c 1 | sed '1{s/[^(]*(//;s/).*//;q}')
+fi
+
+[ "$str_ip" = "" ] && return 0
+
+[ ifup = "$ACTION" ] && {
+        [ "${str_interface}" != "${INTERFACE}" ] && return 0
+        network_get_physdev phydev "$INTERFACE"
+        network_get_gateway nexthop "$INTERFACE"
+        network_get_subnet subnet "$INTERFACE"
+
+        ip_network=`ipcalc.sh $subnet | grep "NETWORK" | awk -F'=' '{print $2}'`
+        ip_mask=`ipcalc.sh $subnet | grep "NETMASK" | awk -F'=' '{print $2}'`
+        acs_ip_network=`ipcalc.sh $str_ip $ip_mask | grep "NETWORK" | awk -F'=' '{print $2}'` 
+         
+        logger -t tr069_routeadd \
+        " ACTION=$ACTION ; phydev=$phydev ; INTERFACE=${INTERFACE} ; \
+        str_interface=${str_interface} ; nexthop=$nexthop ; str_ip=$str_ip ; \
+        sub_net=$subnet ; ip_network=$ip_network ; ip_mask=$ip_mask ; \
+        acs_ip_network=$acs_ip_network ; "
+
+        [ "$ip_network" == "$acs_ip_network" ] && return 0
+
+        ip route add ${str_ip} via ${nexthop} dev ${phydev}
+}

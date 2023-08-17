@@ -1,0 +1,277 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020-2022 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements.Network.Device {
+        
+        /*
+        ** A unique identifier for this particular device
+        ** within the Wi-Fi network
+        */
+        %read-only string ID = "00:00:00:00:00:00";
+        %read-only string SerialNumber;
+        %read-only string Manufacturer;
+        %read-only string ManufacturerModel;
+        %read-only string SoftwareVersion;
+        %read-only string ExecutionEnv;
+        %read-only string CountryCode;
+
+        uint32 MultiAPProfile {
+            on action validate call check_range [0, 5];
+        }
+
+        uint32 APMetricsReportingInterval {
+            on action validate call check_range [0, 255];
+        }
+
+        %read-only object LocalSteeringDisallowedSTA [] {
+            counted with LocalSteeringDisallowedSTANumberOfEntries;
+            %read-only string MACAddress = "";
+        }
+        %read-only object BTMSteeringDisallowedSTAList [] {
+            counted with BTMSteeringDisallowedSTAListNumberOfEntries;
+            %read-only string MACAddress = "";
+        }
+
+        /* Indicates whether the Multi-AP Agent or the single AP reports 
+        ** unsuccessful association attempts of client STAs to Multi-AP Controller.
+        */
+        bool ReportUnsuccessfulAssociations;
+
+        /* Maximum rate for reporting unsuccessful association attempts in attempts per minute */
+        %read-only uint32 MaxReportingRate {
+            on action validate call check_range [0, 255];
+        }
+
+        /* A hexadecimal string of 64 Priority Code Point (PCP) values (one octet per value)
+        ** corresponding to the Differentiated Services Code Point (DSCP)
+        */
+        %read-only string DSCPMap {
+            on action validate call check_range [0, 64];
+        }
+
+        /* The maximum total number of service prioritization rules supported by the Agent */
+        %read-only uint32 MaxPrioritizationRules {
+            on action validate call check_range [0, 255];
+        }
+
+        // 802.1Q C-TAG Service Prioritization support
+        %read-only bool PrioritizationSupport;
+
+        /* The maximum total number of unique VLAN IDs (VIDs) the Multi-AP Agent supports */
+        %read-only uint32 MaxVIDs;
+
+        /*
+        ** The Multi-AP capabilities supported by this device
+        */
+        object MultiAPCapabilities {
+
+            /* Support Unassociated STA Link Metrics reporting
+            ** on the channels its BSSs are currently operating on.
+            */
+            %read-only bool UnassociatedSTALinkMetricsCurrentlyOn = false;
+
+            /* Support Unassociated STA Link Metrics reporting on channels
+            ** its BSSs are not currently operating on.
+            */
+            %read-only bool UnassociatedSTALinkMetricsCurrentlyOff = false;
+
+            /* Support Agent-initiated RCPI-based Steering */
+            %read-only bool AgentInitiatedRCPIBasedSteering = false;
+        }
+
+        %read-only object MultiAPDevice {
+            /* Represented as a six hexadecimal-digit value using all upper-case letters [0-9A-F] {6} */
+            %read-only string ManufacturerOUI;
+            %read-only datetime LastContactTime = "2020-08-31T11:22:39Z";
+            %read-only string AssocIEEE1905DeviceRef;
+
+            %read-only object Backhaul {
+                %read-only string LinkType {
+                    default "None";
+                    on action validate call check_enum [
+                        "None",
+                        "Wi-Fi",
+                        "MoCA",
+                        "Ethernet",
+                        "G.hn",
+                        "HPNA",
+                        "HomePlug",
+                        "UPA"
+                    ];
+                }
+                /**
+                * An empty string value is reserved for the APDevice instance
+                * that represents the Multi-AP Controller.
+                */
+                %read-only string BackhaulMACAddress = "";
+                %read-only string BackhaulDeviceID = "";
+                %read-only string MACAddress = "";
+            }
+        }
+
+        %read-only object SSIDtoVIDMapping {
+            /* The Service Set Identifier (SSID) to VLAN ID mapping for EasyMesh traffic separation */
+            %read-only string SSID;
+            %read-only uint64 VID = 0 {
+                on action validate call check_range [0, 4095];
+            }
+        }
+
+        %read-only object SPRule [] {
+            counted with SPRuleNumberOfEntries;
+
+            /* The Service Prioritization (SP) rule */
+            %read-only uint32 ID;
+            /* Rule precedence – higher number means higher priority */
+            %read-only uint32 Precedence = 0 {
+                on action validate call check_range [0, 254];
+            }
+            /* Rule output - the value of, or method used to select, the 802.1Q C-TAG PCP output value */
+            %read-only uint32 Output = 0 {
+                on action validate call check_range [0, 9];
+            }
+            /* Indicates if the rule always matches */
+            %read-only bool AlwaysMatch;
+        }
+
+        /*
+        ** The list of Radio objects.
+        */
+        object Radio [] {
+            counted with RadioNumberOfEntries;
+        }
+
+        /*
+        ** The list of Interface objects.
+        */
+        object Interface [] {
+            counted with InterfaceNumberOfEntries;
+            %read-only string Status {
+                default "Down";
+                on action validate call check_enum [
+                    "Up",
+                    "Down",
+                    "Dormant"
+                ];
+            }
+            %read-only string MACAddress = "00:00:00:00:00:00";
+            %read-only string Name = "NoName";
+            %read-only uint16 MediaType = 0;
+
+            object Stats {
+                %read-only uint64 BytesSent = 0;
+                %read-only uint64 BytesReceived = 0;
+                %read-only uint64 PacketsSent = 0;
+                %read-only uint64 PacketsReceived = 0;
+                %read-only uint32 ErrorsSent = 0;
+                %read-only uint32 ErrorsReceived = 0;
+                %read-only uint64 UnicastPacketsSent = 0;
+                %read-only uint64 UnicastPacketsReceived = 0;
+                %read-only uint32 DiscardPacketsSent = 0;
+                %read-only uint32 DiscardPacketsReceived = 0;
+                %read-only uint64 MulticastPacketsSent = 0;
+                %read-only uint64 MulticastPacketsReceived = 0;
+                %read-only uint64 BroadcastPacketsSent = 0;
+                %read-only uint64 BroadcastPacketsReceived = 0;
+            }
+
+            object Neighbor [] {
+                /*
+                ** Neighbor AL-MAC address.
+                */
+                counted with NeighborNumberOfEntries;
+                %read-only string ID = "00:00:00:00:00:00";
+                %read-only bool IsIEEE1905 = false;
+            }
+        }
+
+        /* Latest Channel Availability Check (CAC) Status Report from the device */
+        %read-only object CACStatus [] {
+            counted with CACStatusNumberOfEntries;
+            %read-only datetime TimeStamp;
+
+            /* Describes available channels identified by CAC */
+            %read-only object CACAvailableChannel [] {
+                counted with CACAvailableChannelNumberOfEntries;
+                %read-only uint32 OpClass = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Channel = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Minutes = 0 {
+                    on action validate call check_range [0, 65535];
+                }
+            }
+
+            /* Describes channels identified by CAC that may not be occupied */
+            %read-only object CACNonOccupancyChannel [] {
+                counted with CACNonOccupancyChannelNumberOfEntries;
+                %read-only uint32 OpClass = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Channel = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Seconds = 0 {
+                    on action validate call check_range [0, 65535];
+                }
+            }
+
+            /* Describes channels with ongoing CAC */
+            %read-only object CACActiveChannel [] {
+                counted with CACActiveChannelNumberOfEntries;
+                %read-only uint32 OpClass = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Channel = 0 {
+                    on action validate call check_range [0, 255];
+                }
+                %read-only uint32 Countdown = 0;
+            }
+        }
+
+        /* IEEE 1905 security capabilities. */
+        %read-only object IEEE1905Security [] {
+            %read-only uint32 OnboardingProtocol = 0;
+            %read-only uint32 IntegrityAlgorithm = 0;
+            %read-only uint32 EncryptionAlgorithm = 0;
+        }
+
+        /* The default 802.1Q settings for EasyMesh service prioritization */
+        object Default8021Q [] {
+            bool Enable;
+            uint32 PrimaryVID = 0 {
+                on action validate call check_range [0, 4095];
+            }
+            uint32 DefaultPCP = 0 {
+                on action validate call check_range [0, 7];
+            }
+        }
+
+        /*
+        ** The interval between the collection of consecutive measurements of the most
+        ** frequently updated Data Element from this device (milliseconds).
+        */
+        %read-only uint32 CollectionInterval = 0 {
+            on action validate call check_minimum 0;
+        }
+
+        %read-only bool SupportsVBSS = false;
+
+        %instance bool UpdateVBSSCapabilities();
+    }
+}

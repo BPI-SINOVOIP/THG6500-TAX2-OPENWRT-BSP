@@ -1,0 +1,20 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+case "$ACTION" in
+    pressed)
+        echo "Pressed reset button!" > /dev/console
+        [ -c /dev/pts/0 ] &&{
+            echo "Pressed reset button!" > /dev/pts/0
+        }
+    ;;
+    released)
+        echo "Released after continuously pressing reset button for $SEEN seconds!" > /dev/console
+        [ -c /dev/pts/0 ] &&{
+            echo "Released after continuously pressing reset button for $SEEN seconds!" > /dev/pts/0
+        }
+    ;;
+esac
+
+return 0

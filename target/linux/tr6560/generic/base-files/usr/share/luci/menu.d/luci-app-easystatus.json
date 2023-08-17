@@ -1,0 +1,14 @@
+{
+	"admin/services/management/easystatus": {
+		"title": "TR069-Status",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "easycwmp/easystatus"
+		},
+		"depends": {
+			"acl": [ "luci-app-easystatus" ],
+			"fs": { "/bin/ubus": "executable" },
+		}
+	}
+}

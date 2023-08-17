@@ -1,0 +1,16 @@
+. /lib/functions/network.sh
+
+[ ifup = "$ACTION" ] && {
+	
+	network_get_protocol ifprot "$INTERFACE"
+	network_get_physdev phydev "$INTERFACE"
+	network_get_ipaddr ifip "$INTERFACE"
+	[ "$phydev" = "br-lan"  -o "$phydev" = "lo" ] && return 0
+	logger -t tri_iface " ACTION=$ACTION ; phydev=$phydev ; INTERFACE=$INTERFACE ; ifip=$ifip ; ifprot=$ifprot ; "
+	[  -n "$ifip" ] && {
+		cs_cli /home/cli/api/protocol/cfe/intf/setip  -v ifname $phydev ip $ifip
+		logger -t tri_iface "$phydev setip $ifip "
+	}
+	
+}
+

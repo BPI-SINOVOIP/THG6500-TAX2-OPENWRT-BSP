@@ -1,0 +1,14 @@
+. /lib/functions/leds.sh
+. /lib/functions/uci-defaults.sh
+
+board_config_update
+
+ucidef_set_led_wlan "2g" "2g" "tri:green:wlan2g" "none"
+ucidef_set_led_wlan "5g" "5g" "tri:green:wlan5g" "none"
+ucidef_set_led_wlan "normal" "normal" "tri:green:power" "default-on"
+ucidef_set_led_wlan "abnormal" "abnormal" "tri:red:power" "none"
+ucidef_set_led_wlan "wps" "wps" "tri:green:wps" "none"
+
+board_config_flush
+
+exit 0

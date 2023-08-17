@@ -1,0 +1,26 @@
+Source-Makefile: feeds/packages/libs/libnpupnp/Makefile
+Build-Depends: libmicrohttpd
+
+Package: libnpupnp
+Version: 4.2.1-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libstdcpp +libexpat +libcurl +libmicrohttpd
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: A C++ base UPnP library
+Maintainer: 
+Source: libnpupnp-4.2.1.tar.gz
+License: LGPL-2.1-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description: npupnp (new pupnp or not pupnp ?) is an UPnP library derived from the
+venerable pupnp (https://github.com/pupnp/pupnp), based on its 1.6.x
+branch (around 1.6.25).
+https://framagit.org/medoc92/npupnp
+
+@@
+
+

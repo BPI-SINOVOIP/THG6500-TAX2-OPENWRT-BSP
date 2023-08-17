@@ -1,0 +1,14 @@
+#!/bin/sh
+. /lib/functions/system.sh
+. /lib/functions.sh
+
+
+
+case "$ACTION" in
+    "linkdown")
+        management_mode=`uci -q get prplmesh.config.management_mode`
+        [ "$management_mode" = "Multi-AP-Agent" ] || exit 0 
+
+        /etc/init.d/network restart
+        ;;
+esac

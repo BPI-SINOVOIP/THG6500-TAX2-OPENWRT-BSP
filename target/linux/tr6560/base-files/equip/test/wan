@@ -1,0 +1,25 @@
+#!/bin/sh
+
+type=$1
+ipaddr=$2
+if [ "$type" = "eth" ]; then
+    oldports=`uci get network.@device[0].ports`
+    uci set network.@device[0].ports="${oldports} wan"
+    /etc/init.d/network restart
+    sleep 1
+    if [ "$ipaddr" = "" ]; then
+        ipaddr="192.168.1.10"
+    fi
+    ping ${ipaddr} -c 3 > /var/pingstat
+    result=`cat /var/pingstat | grep "3 packets received" | wc -l`
+    rm -rf /var/pingstat
+    uci set network.@device[0].ports="${oldports}"
+    /etc/init.d/network restart
+    if [ $result -eq 1 ]; then
+        echo "PASSED: eth wan test ok!"
+    else
+        echo "FAILED: eth wan test error!"
+    fi
+else
+    echo "Other types of wan are currently not supported"
+fi

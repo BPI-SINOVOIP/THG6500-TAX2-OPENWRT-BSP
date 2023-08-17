@@ -1,0 +1,23 @@
+Source-Makefile: feeds/packages/net/speedtestpp/Makefile
+Build-Depends: !BUILD_NLS:libiconv
+
+Package: speedtestpp
+Version: 1.14-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcurl +libxml2 +libopenssl +libstdcpp +BUILD_NLS:libiconv-full
+Conflicts: python3-speedtest-cli
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: speedtest++
+Maintainer: Oskari Rauta <oskari.rauta@gmail.com>
+Source: speedtestpp-1.14.tar.xz
+License: MIT
+Type: ipkg
+Description:   Yet another unofficial speedtest.net client cli interface
+https://github.com/taganaka/SpeedTest
+Oskari Rauta <oskari.rauta@gmail.com>
+@@
+
+

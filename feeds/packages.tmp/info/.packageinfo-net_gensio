@@ -1,0 +1,140 @@
+Source-Makefile: feeds/packages/net/gensio/Makefile
+Build-Depends: PACKAGE_python3-gensio:swig
+
+Package: libgensio
+Menu: 1
+Version: 2.3.5-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +GENSIO_SSL:libopenssl +GENSIO_WRAP:libwrap +GENSIO_SCTP:libsctp +GENSIO_PTHREADS:libpthread +GENSIO_AVAHI:libavahi-client +GENSIO_TCL:tcl +GENSIO_GLIB:glib2 +GENSIO_SSHD:libpam
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: Abstract stream I/O (runtime files)
+Maintainer: Nita Vesa <werecatf@outlook.com>
+Source: gensio-2.3.5.tar.gz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  This project (pronounced gen'-see-oh) is used to abstract stream I/O
+ like serial port, TCP, telnet, UDP, SSL, IPMI SOL etc and offers a
+ framework for giving a consistent view of various stream (and packet)
+ I/O types. You create a gensio object (or a gensio), and you can use
+ that gensio without having to know too much about what is going on
+ underneath. You can stack gensio on top of another one to add protocol
+ funcionality. For instance, you can create a TCP gensio, stack SSL on
+ top of that, and stack Telnet on top of that. It supports a number of
+ network I/O and serial ports.  Gensio can be used for sending and
+ receiving ports, and it also supports establishing encrypted and
+ authenticated connections.
+ .
+ This package contains the runtime libraries.
+https://github.com/cminyard/gensio
+Nita Vesa <werecatf@outlook.com>
+@@
+Config:
+	source "feeds/packages/net/gensio/Config.in"
+@@
+
+Package: gensio-bin
+Menu: 1
+Version: 2.3.5-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libgensio
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Abstract stream I/O (command-line tools)
+Maintainer: Nita Vesa <werecatf@outlook.com>
+Source: gensio-2.3.5.tar.gz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  This project (pronounced gen'-see-oh) is used to abstract stream I/O
+ like serial port, TCP, telnet, UDP, SSL, IPMI SOL etc and offers a
+ framework for giving a consistent view of various stream (and packet)
+ I/O types. You create a gensio object (or a gensio), and you can use
+ that gensio without having to know too much about what is going on
+ underneath. You can stack gensio on top of another one to add protocol
+ funcionality. For instance, you can create a TCP gensio, stack SSL on
+ top of that, and stack Telnet on top of that. It supports a number of
+ network I/O and serial ports.  Gensio can be used for sending and
+ receiving ports, and it also supports establishing encrypted and
+ authenticated connections.
+ .
+ This package contains the command-line tools.
+https://github.com/cminyard/gensio
+Nita Vesa <werecatf@outlook.com>
+@@
+Config:
+	source "feeds/packages/net/gensio/Config-bin.in"
+@@
+
+Package: python3-gensio
+Version: 2.3.5-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +PACKAGE_python3-gensio:python3-light +libgensio
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: lang
+Category: Languages
+Repository: base
+Title: Abstract stream I/O (Python3-bindings)
+Maintainer: Nita Vesa <werecatf@outlook.com>
+Source: gensio-2.3.5.tar.gz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  This project (pronounced gen'-see-oh) is used to abstract stream I/O
+ like serial port, TCP, telnet, UDP, SSL, IPMI SOL etc and offers a
+ framework for giving a consistent view of various stream (and packet)
+ I/O types. You create a gensio object (or a gensio), and you can use
+ that gensio without having to know too much about what is going on
+ underneath. You can stack gensio on top of another one to add protocol
+ funcionality. For instance, you can create a TCP gensio, stack SSL on
+ top of that, and stack Telnet on top of that. It supports a number of
+ network I/O and serial ports.  Gensio can be used for sending and
+ receiving ports, and it also supports establishing encrypted and
+ authenticated connections.
+ .
+ This package contains the Python3-bindings for libgensio.
+https://github.com/cminyard/gensio
+Nita Vesa <werecatf@outlook.com>
+@@
+
+Package: libgensiocpp
+Version: 2.3.5-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libgensio +PACKAGE_libgensiocpp:libstdcpp
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: libs
+Category: Libraries
+Repository: base
+Title: Abstract stream I/O (C++ - bindings)
+Maintainer: Nita Vesa <werecatf@outlook.com>
+Source: gensio-2.3.5.tar.gz
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description:  This project (pronounced gen'-see-oh) is used to abstract stream I/O
+ like serial port, TCP, telnet, UDP, SSL, IPMI SOL etc and offers a
+ framework for giving a consistent view of various stream (and packet)
+ I/O types. You create a gensio object (or a gensio), and you can use
+ that gensio without having to know too much about what is going on
+ underneath. You can stack gensio on top of another one to add protocol
+ funcionality. For instance, you can create a TCP gensio, stack SSL on
+ top of that, and stack Telnet on top of that. It supports a number of
+ network I/O and serial ports.  Gensio can be used for sending and
+ receiving ports, and it also supports establishing encrypted and
+ authenticated connections.
+ .
+ This package contains the C++ runtime files.
+https://github.com/cminyard/gensio
+Nita Vesa <werecatf@outlook.com>
+@@
+
+

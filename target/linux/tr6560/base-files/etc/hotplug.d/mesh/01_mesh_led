@@ -1,0 +1,16 @@
+#!/bin/sh
+
+logger -t mesh_led -p notice "ACTION=$ACTION"
+
+case "$ACTION" in
+    "linkup")
+        ubus call led set '{ "leds": { "tri:green:wps": 255 }, "on": 0 }'
+    ;;
+    "linkdown")
+        ubus call led set '{ "leds": { "tri:green:wps": 0 } }'
+    ;;
+    "linking")
+        ubus call led set '{ "leds": { "tri:green:wps": [0, 255] }, "on":250, "off":250, "blink":1 }'
+    ;;
+esac
+

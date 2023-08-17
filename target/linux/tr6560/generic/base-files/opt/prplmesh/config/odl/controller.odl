@@ -1,0 +1,261 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%define {
+    mib HTCapabilities {
+        /* Coming from 17.2.8 of the Multi-AP Specification */
+        object HTCapabilities {
+            /* Maximum number of supported Tx spatial streams */
+            %read-only uint32 MaxNumberOfTxSpatialStreams {
+                on action validate call check_maximum 4;
+            }
+            /* Maximum number of supported Rx spatial streams */
+            %read-only uint32 MaxNumberOfRxSpatialStreams {
+                on action validate call check_maximum 4;
+            }
+            %read-only bool HTShortGI20;        /* HT short GI for 20 MHz support. */
+            %read-only bool HTShortGI40;        /* HT short GI for 40 MHz support. */
+            %read-only bool HT40;               /* HT 40 MHz bandwidth support.*/
+        }
+    }
+}
+
+%define {
+    mib VHTCapabilities {
+        /* Coming from 17.2.9 of the Multi-AP Specification */
+        object VHTCapabilities {
+            /* Supported set of VHT MCSs and NSSs that can be transmitted. */
+            %read-only uint16 MCSNSSTxSet {
+                on action validate call check_range [0, 65536];
+            }
+            /* Supported set of VHT MCSs and NSSs that can be received. */
+            %read-only uint16 MCSNSSRxSet {
+                on action validate call check_range [0, 65536];
+            }
+            /* Maximum number of supported Tx spatial streams */
+            %read-only uint32 MaxNumberOfTxSpatialStreams {
+                on action validate call check_maximum 8;
+            }
+            /* Maximum number of supported Rx spatial streams */
+            %read-only uint32 MaxNumberOfRxSpatialStreams {
+                on action validate call check_maximum 8;
+            }
+            %read-only bool VHTShortGI80;               /* VHT short GI for 80 MHz support. */
+            %read-only bool VHTShortGI160;              /* VHT short GI for 160 MHz and 80+80 MHz support. */
+            %read-only bool VHT8080;                    /* VHT 80+80 MHz bandwidth support. */
+            %read-only bool VHT160;                     /* VHT 160 MHz bandwidth support. */
+            %read-only bool SUBeamformer;               /* Single-user beamformer support. */
+            %read-only bool MUBeamformer;               /* Multi-user beamformer support. */
+        }
+    }
+}
+
+%define {
+    mib WiFi6Capabilities {
+        /* Coming from 17.2.72 of the Multi-AP Specification R4 and TR-181 spec v2.15 */
+        object WiFi6Capabilities {
+            /* Supported HE MCS and NSS indicating set of supported HE Tx and Rx MCS/NSS. */
+            object MCSNSS[] {
+                counted with MCSNSSNumberOfEntries;
+                %read-only uint32 MCSNSSSet;            /* Individual MCS and NSS set*/
+            }
+            /* Maximum number of supported Tx spatial streams */
+            %read-only uint32 MaxNumberOfTxSpatialStreams {
+                on action validate call check_maximum 8;
+            }
+            /* Maximum number of supported Rx spatial streams */
+            %read-only uint32 MaxNumberOfRxSpatialStreams {
+                on action validate call check_maximum 8;
+            }
+            %read-only bool HE160;                      /* HE 160 MHz bandwidth support. */
+            %read-only bool HE8080;                     /* HE 80+80 MHz bandwidth support. */
+            %read-only bool SUBeamformer;               /* Single-user beamformer support. */
+            %read-only bool SUBeamformee;               /* Single-user beamformee support. */
+            %read-only bool MUBeamformer;               /* Multi-user beamformer support. */
+            %read-only bool Beamformee80orLess;         /* Beamformee STS ≤ 80 MHz support. */
+            %read-only bool BeamformeeAbove80;          /* Beamformee STS > 80 MHz support. */
+
+            %read-only bool ULMUMIMO;                   /* UL MU-MIMO support. */
+            %read-only bool ULOFDMA;                    /* UL OFDMA support. */
+            %read-only bool DLOFDMA;                    /* DL OFDMA support. */
+
+            /* Maximum number of users supported per DL MU-MIMO TX in an AP role. */
+            %read-only uint32 MaxDLMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL MU-MIMO RX in an AP role. */
+            %read-only uint32 MaxULMUMIMO = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per DL OFDMA TX in an AP role. */
+            %read-only uint32 MaxDLOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+            /* Maximum number of users supported per UL OFDMA RX in an AP role */
+            %read-only uint32 MaxULOFDMA = 0 {
+                on action validate call check_range [0, 255];
+            }
+
+            %read-only bool RTS;                        /* Request To Send (RTS) support. */
+            %read-only bool MURTS;                      /* Multi-user RTS support. */
+            %read-only bool MultiBSSID;                 /* Multi-BSSID support. */
+            %read-only bool MUEDCA;                     /* Multi-user enhanced distributed channel access (MU EDCA) support. */
+            %read-only bool TWTRequestor;               /* TWT Requester support. */
+            %read-only bool TWTResponder;               /* TWT Responder support. */
+            %read-only bool SpatialReuse;               /* EasyMesh configuration and reporting of BSS Color/Spatial Reuse support. */
+            %read-only bool AnticipatedChannelUsage;    /* Anticipated Channel Usage (ACU) reporting support. */
+        }
+    }
+}
+
+
+%define {
+
+    // Define main data model
+object Device {   object WiFi {   object DataElements {   
+
+                object Configuration {
+                    bool BandSteeringEnabled = false;
+                    bool ClientRoamingEnabled = false;
+
+                    uint32 SteeringCurrentBonus = 0 {
+                        on action validate call check_range [0, 10000];
+                    }
+                    uint32 SteeringDisassociationTimer = 0;
+
+                    // Link Metric Request Interval in Seconds
+                    uint32 LinkMetricsRequestInterval = 0;
+
+                    bool ChannelSelectionTaskEnabled = false;
+                    bool DynamicChannelSelectionTaskEnabled = false;
+                    bool BackhaulOptimizationEnabled = false;
+                    bool LoadBalancingTaskEnabled = false;
+                    bool OptimalPathPreferSignalStrength = false;
+                    bool HealthCheckTaskEnabled = false;
+                    bool StatisticsPollingTaskEnabled = false;
+                    uint32 StatisticsPollingRateSec = 1 {
+                        on action validate call check_range [1, 10000];
+                    }
+                    bool DFSReentry = false;
+                    bool DaisyChainingDisabled = false;
+                    object QoS {
+                        uint32 SPRuleOutput = 0 {
+                            on action validate call check_range [0, 9];
+                        }
+                        string DSCPMap {
+                            on action validate call check_range [0, 64];
+                        }
+                    }
+                }
+
+                // Define controller.Network element
+                object Network {
+
+                    // Define string variable
+                    %read-only string ID = "0";
+
+                    // Define date variable in format YYYY-MM-DDThh:mm:ssZ
+                    %read-only datetime TimeStamp = "2020-08-31T11:22:39Z";
+
+                    %read-only string ControllerID = "0";
+
+                    /*
+                        Network devices list.
+                    */
+                    object Device[] {
+                        counted with DeviceNumberOfEntries;
+                    }
+
+                    object AccessPoint[] {
+                        counted with AccessPointNumberOfEntries;
+                    }
+
+                    void AccessPointCommit();
+
+                    void SetServicePrioritization();
+
+                    void ClientSteering(
+                        %in %mandatory string station_mac,
+                        %in %mandatory string target_bssid
+                    );
+
+                    %read-only object MultiAPSteeringSummaryStats {
+                        %read-only uint64 NoCandidateAPFailures = 0;
+                        %read-only uint64 BlacklistAttempts = 0;
+                        %read-only uint64 BlacklistSuccesses = 0;
+                        %read-only uint64 BlacklistFailures = 0;
+                        %read-only uint64 BTMAttempts = 0;
+                        %read-only uint64 BTMSuccesses = 0;
+                        %read-only uint64 BTMFailures = 0;
+                        %read-only uint64 BTMQueryResponses = 0;
+                    }
+                    /* Update all unassociated stations stats, from all agents and all radios */
+                    bool UpdateUnassociatedStationsStats();
+                }
+                %persistent %read-only object SteerEvent[] {
+                    counted with SteerEventNumberOfEntries;
+                    %persistent %read-only string DeviceId = "00:00:00:00:00:00";
+                    %persistent %read-only string TimeStamp = "2020-08-31T11:22:39Z";
+                    %persistent %read-only string SteeredFrom = "00:00:00:00:00:00";
+                    %persistent %read-only string Result {
+                        default "Unknown";
+                        on action validate call check_enum [
+                            "Unknown",
+                            "Success",
+                            "Fail"
+                        ];
+                    }
+                    %persistent %read-only uint16 StatusCode;
+                    %persistent %read-only string Status = "Unknown";
+                    %persistent %read-only string SteeredTo = "00:00:00:00:00:00";
+                    %persistent %read-only int64 TimeTaken;
+                    %persistent %read-only int32 NewLinkRate;
+                    %persistent %read-only string SteeringType {
+                        default "Unknown";
+                        on action validate call check_enum [
+                            "BTM",
+                            "Blacklist",
+                            "Unknown"
+                        ];
+                    }
+                    %persistent %read-only string SteeringOrigin {
+                        default "Unknown";
+                        on action validate call check_enum [
+                            "Unknown",
+                            "NBAPI",
+                            "CLI",
+                            "Controller",
+                            "Agent",
+                            "Station"
+                        ];
+                    }
+                }
+                %read-only object AgentConnectedEvent[];
+                %read-only object AgentDisconnectedEvent[];
+    } } }  
+}
+
+%populate {
+    on event "dm:object-changed" call event_configuration_changed
+        filter 'object matches "CONTROLLER_ROOT_DM_literal\.Configuration\."';
+}
+
+include "device.odl";
+include "radio.odl";
+include "bss.odl";
+include "capabilities.odl";
+include "scan_result.odl";
+include "sta.odl";
+include "association_event.odl";
+include "disassociation_event.odl";
+include "access_point.odl";
+include "agent_connected_event.odl";
+include "failed_connection_event.odl";
+include "agent_disconnected_event.odl";
+include "unassociated_sta.odl";

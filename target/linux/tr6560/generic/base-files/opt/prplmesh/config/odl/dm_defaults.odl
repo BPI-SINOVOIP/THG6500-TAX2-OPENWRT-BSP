@@ -1,0 +1,63 @@
+%populate {
+    object Device.WiFi.DataElements.Network.Device {
+        instance add() {
+            object Radio {
+                instance add() {
+                    object BSS {
+                        instance add() {
+                            object STA {
+                                instance add() {}
+                            }
+                        }
+                    }
+
+                    object CurrentOperatingClasses {
+                        instance add() {}
+                    }
+
+                    object Capabilities {
+                        instance add() {
+                            object OperatingClasses {
+                                instance add() {}
+                            }
+                        }
+                    }
+
+                    object UnassociatedSTA {
+                        instance add() {}
+                    }
+
+                    object ScanResult {
+                        object OpClassScan {
+                            instance add() {
+                                object ChannelScan {
+                                     instance add() {
+                                        object NeighborBSS {
+                                            instance add() {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+%populate {
+    object AssociationEvent {
+        object AssociationEventData {
+            instance add() {}
+        }
+    }
+}
+
+%populate {
+    object DisassociationEvent {
+        object DisassociationEventData {
+            instance add() {}
+        }
+    }
+}

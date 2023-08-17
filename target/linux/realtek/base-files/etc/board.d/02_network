@@ -1,0 +1,68 @@
+
+. /lib/functions.sh
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+ucidef_set_poe() {
+	json_select_object poe
+		json_add_string "budget" "$1"
+		json_select_array ports
+			for port in $2; do
+				json_add_string "" "$port"
+			done
+		json_select ..
+	json_select ..
+}
+
+board=$(board_name)
+board_config_update
+
+lan_list=$(ls -1 -v -d /sys/class/net/lan* | xargs -n1 basename | xargs)
+ucidef_set_bridge_device switch
+ucidef_set_interface_lan "$lan_list"
+
+lan_mac=""
+lan_mac_end=""
+label_mac=""
+case $board in
+*)
+	lan_mac=$(mtd_get_mac_ascii u-boot-env2 mac_start)
+	lan_mac_end=$(mtd_get_mac_ascii u-boot-env2 mac_end)
+	label_mac=$(mtd_get_mac_ascii u-boot-env ethaddr)
+	[ -z "$lan_mac" ] && lan_mac=$label_mac
+	;;
+esac
+
+ucidef_set_interface_macaddr "lan" $lan_mac
+ucidef_set_bridge_mac "$lan_mac"
+ucidef_set_network_device_mac eth0 $lan_mac
+for lan in $lan_list; do
+	ucidef_set_network_device_mac $lan $lan_mac
+	[ -z "$lan_mac_end" ] || [ "$lan_mac" == "$lan_mac_end" ] && lan_mac=$(macaddr_setbit_la $lan_mac)
+	lan_mac=$(macaddr_add $lan_mac 1)
+done
+[ -n "$label_mac" ] && ucidef_set_label_macaddr $label_mac
+
+case $board in
+netgear,gs110tpp-v1)
+	ucidef_set_poe 130 "$lan_list"
+	;;
+netgear,gs310tp-v1)
+	ucidef_set_poe 55 "$lan_list"
+	;;
+zyxel,gs1900-10hp)
+	ucidef_set_poe 77 "$lan_list"
+	;;
+zyxel,gs1900-8hp-v1|\
+zyxel,gs1900-8hp-v2)
+	ucidef_set_poe 70 "$lan_list"
+	;;
+zyxel,gs1900-24hp-v1|\
+zyxel,gs1900-24hp-v2)
+	ucidef_set_poe 170 "$lan_list"
+	;;
+esac
+
+board_config_flush
+
+exit 0

@@ -1,0 +1,19 @@
+diff -aur old/kernel/printk/printk.c new/kernel/printk/printk.c
+--- old/kernel/printk/printk.c	2022-08-25 17:38:24.000000000 +0800
++++ new/kernel/printk/printk.c	2022-09-23 18:12:31.985288169 +0800
+@@ -2003,6 +2003,15 @@
+ 		}
+ 	}
+ 
++	/* 在printk能正常工作之前，打开CONFIG_DEBUG_LL方便调试 */
++#ifdef CONFIG_DEBUG_LL
++	{
++		extern void printascii(const char *);
++		if (unlikely(preferred_console == -1)) //'preferred_console'为-1说明串口初始化未完成，此时要调用printascii
++			printascii(text);
++	}
++#endif
++
+ 	if (level == LOGLEVEL_DEFAULT)
+ 		level = default_message_loglevel;
+ 

@@ -1,0 +1,25 @@
+Source-Makefile: feeds/packages/lang/python/micropython-lib/Makefile
+
+Package: micropython-lib
+Submenu: Python
+Version: 20220324-0c31e0b3d712fcd21982daec8bfca48ad5527a72-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +micropython
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: lang
+Category: Languages
+Repository: base
+Title: micropython-lib
+Maintainer: Jeffery To <jeffery.to@gmail.com>
+Source: micropython-lib-20220324-0c31e0b3d712fcd21982daec8bfca48ad5527a72.tar.xz
+License: MIT PSF-2.0
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   This is a repository of libraries designed to be useful for writing
+  MicroPython applications.
+https://github.com/micropython/micropython-lib
+Jeffery To <jeffery.to@gmail.com>
+@@
+
+

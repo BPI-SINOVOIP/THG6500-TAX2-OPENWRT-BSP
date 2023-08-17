@@ -1,0 +1,27 @@
+Source-Makefile: feeds/packages/utils/gl-mifi-mcu/Makefile
+
+Package: kmod-gl-mifi-mcu
+Submenu: Hardware Monitoring Support
+Version: <LINUX_VERSION>+1-1
+Depends: 
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: kernel
+Category: Kernel modules
+Title: GL.iNet GL-MiFI Power monitoring support
+Maintainer: Nuno Goncalves <nunojpg@gmail.com>
+Source: 
+License: GPL-3.0-or-later
+Type: ipkg
+Description:   Interfaces with GL-MiFI Power monitoring MCU with a soft UART
+  and provides Battery SOC, Temperature and charging data at
+  /proc/gl_mifi_mcu.
+  This feature is supported from GL-MiFi PCB revision v2.6.2.
+  The content of /proc/gl_mifi_mcu is JSON as received from the
+  UART and will frequenty contain corrupted data due to soft UART
+  unreliability. User application must validate the data.
+Nuno Goncalves <nunojpg@gmail.com>
+@@
+
+

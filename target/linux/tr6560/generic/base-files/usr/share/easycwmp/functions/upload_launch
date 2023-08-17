@@ -1,0 +1,297 @@
+#!/bin/sh
+# Copyright (C) 2019 PIVA Software <www.pivasoftware.com>
+# 	Author: AHMED Sahnoun <ahmed.sahnoun@pivasoftware.com>
+
+UPLOAD_DIAGNOSTIC_FILE="upload_diagnostic"
+UPLOAD_DIR="/tmp/easycwmp_updiagnostics"
+UPLOAD_FILE="/var/obuspa/upload_usp"
+
+[ "$1" != "run" -a "$1" != "stop" -a "$1" != "usp" ] && return
+
+UCI_GET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state get"
+UCI_SET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state set"
+
+upload_get() {
+	local val=`$UCI_GET_VARSTATE $1`
+	echo ${val:-$2}
+}
+
+upload_usp() {
+	local i res cr tr start end su
+	local up_url=`awk -F 'UploadURL:' '/UploadURL:/ {print $2}' $UPLOAD_FILE`
+	local leLength=`awk -F'[=: ]' '/TestFileLength:/ {print $2}' $UPLOAD_FILE`
+	local MeasurementInterval=`awk -F'[=: ]' '/TimeBasedTestMeasurementInterval:/ {print $2}' $UPLOAD_FILE`
+	local ProtocolVersion=`awk -F'[=: ]' '/ProtocolVersion:/ {print $2}' $UPLOAD_FILE`
+	local Interface=`awk -F'[=: ]' '/Interface:/ {print $2}' $UPLOAD_FILE`
+	local TestDuration=`awk -F'[=: ]' '/TimeBasedTestDuration:/ {print $2}' $UPLOAD_FILE`
+
+	rm -rf $UPLOAD_FILE
+	[ "$up_url" = "" ] && return
+	[ "$leLength" = "" ] && return
+	upload_launch
+	echo "Status:$state" 2>&1 >> $UPLOAD_FILE
+	[ "$state" != "Complete" ] && { 
+	return; }
+	echo "IPAddressUsed:$IPAddressUsed" 2>&1 >> $UPLOAD_FILE
+	echo "ROMTime:$outROMTime" 2>&1 >> $UPLOAD_FILE
+	echo "BOMTime:$outBOMTime" 2>&1 >> $UPLOAD_FILE
+	echo "EOMTime:$outBOMTime" 2>&1 >> $UPLOAD_FILE
+	echo "TestBytesSent:$testbytesent" 2>&1 >> $UPLOAD_FILE
+	echo "TotalBytesReceived:$TotalbytesReceived" 2>&1 >> $UPLOAD_FILE
+	echo "TotalBytesSent:$TotalbytesSent" 2>&1 >> $UPLOAD_FILE
+	echo "TestBytesSentUnderFullLoading:$TotalbytesSent" 2>&1 >> $UPLOAD_FILE
+	echo "TotalBytesReceivedUnderFullLoading:$TotalbytesReceived" 2>&1 >> $UPLOAD_FILE
+	echo "TotalBytesSentUnderFullLoading:$TotalbytesSent" 2>&1 >> $UPLOAD_FILE
+	echo "TCPOpenRequestTime:$outTCPOpenRequestTime" 2>&1 >> $UPLOAD_FILE
+	echo "TCPOpenResponseTime:$outTCPOpenResponseTime" 2>&1 >> $UPLOAD_FILE
+
+	ind=$(expr index "$ResultTime" ",")
+	i=0
+	while [ $ind != "0" ]; do
+		let i++
+		StartTime=${ResultTime:0:$ind}
+		ResultTime=${ResultTime:$ind}
+		StartTime=${StartTime//,/}
+		ind=$(expr index "$resultBytes" ",")
+		TotalBytesReceived=${resultBytes:0:$ind - 1}
+		resultBytes=${resultBytes:$ind}
+
+		echo "IncrementalResult.$i.TotalBytesReceived:$TotalBytesReceived" 2>&1 >> $UPLOAD_FILE
+		echo "IncrementalResult.$i.StartTime:$StartTime" 2>&1 >> $UPLOAD_FILE
+		ind=$(expr index "$ResultTime" ",")
+		EndTime=${ResultTime:0:$ind - 1}
+		[ "$ind" = "0" ] && EndTime=$ResultTime
+		echo "IncrementalResult.$i.EndTime:$EndTime" 2>&1 >> $UPLOAD_FILE
+	done
+
+}
+
+
+upload_easycwmp() {
+	local i res cr tr start end su
+	[ "`$UCI_GET_VARSTATE easycwmp.@local[0].UploadDiagnosticsState`" != "Requested" ] && return
+	local up_url=`upload_get easycwmp.@local[0].UploadURL`
+	local leLength=`upload_get easycwmp.@local[0].UploadTestFileLength`
+	local MeasurementInterval=`upload_get easycwmp.@local[0].UploadTimeBasedTestMeasurementInterval`
+	local ProtocolVersion=`upload_get easycwmp.@local[0].UploadProtocolVersion `
+	local Interface=`upload_get easycwmp.@local[0].UploadInterface`
+	local TestDuration=`upload_get easycwmp.@local[0].UploadTimeBasedTestDuration`
+
+	[ "$up_url" = "" ] && return
+	[ "$leLength" = "" ] && return
+	upload_launch
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsState="$state";
+		[ "$state" != "Complete" ] && { 
+	event_dignostic
+	return; }
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsROMTime="$outROMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsBOMTime="$outBOMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsEOMTime="$outEOMTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsTCPOpenRequestTime="$outTCPOpenRequestTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsTCPOpenResponseTime="$outTCPOpenResponseTime";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsIPAddressUsed="$IPAddressUsed";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsTotalBytesReceived="$TotalbytesReceived";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsTotalBytesSent="$TotalbytesSent";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsTestBytesSent="$testbytesent";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsResultTotalBytesSent="$resultBytes";
+	$UCI_SET_VARSTATE easycwmp.@local[0].UploadDiagnosticsResultTime="$ResultTime";
+	event_dignostic
+}
+
+upload_launch() {
+	[ "$TestDuration" = "0" ] && TestDuration=""
+	[ "$MeasurementInterval" = "0" ] && MeasurementInterval=""
+	if [ "$ProtocolVersion" = "Any" ] 
+	then 
+		ProtocolVersion=""
+	elif [ "$ProtocolVersion" = "IPv4" ]
+	then
+		ProtocolVersion="-4"
+	elif [ "$ProtocolVersion" = "IPv6" ]
+	then
+		ProtocolVersion="-6"
+	fi
+
+	[ -n "$TestDuration" ] &&  timeout="-m $TestDuration"
+	rm -rf $UPLOAD_DIR
+	tmp_size_get=`df -h /tmp`
+	tmp_size_get=`echo $tmp_size_get  |awk '{print $(NF-2)}'`
+	k=`expr index $tmp_size_get k`
+	m=`expr index $tmp_size_get M`
+	[ "$k" != "0" ] && {
+		tmp_size_get=${tmp_size_get//k/}
+		tmp_size=$(echo $tmp_size_get | awk '{printf "%.0f", $1  * 1024 }')
+	}
+	[ "$m" != "0" ] && {
+		tmp_size_get=${tmp_size_get//M/}
+		tmp_size=$(echo $tmp_size_get | awk '{printf "%.0f", $1  * 1048576 }')
+	}
+	[ "$leLength" -gt "$tmp_size" ] && {
+			state=Error_Internal;
+		return;
+	}
+	mkdir -p $UPLOAD_DIR
+	dd if=/dev/zero of=$UPLOAD_DIR/$UPLOAD_DIAGNOSTIC_FILE count=1 bs=$leLength
+	[ "$Interface" != "" ] && {
+		ubusInterface=`echo {\"interface\":\"$Interface\"}`
+		device=`ubus call "network.interface" "status" $ubusInterface|jsonfilter -e @.device`	
+		[ "$ProtocolVersion" = "-6" ] && IPAddressUsed=`ubus call "network.interface" "status" $ubusInterface |jsonfilter -e '@["ipv6-address"][0].address'`
+		[ "$ProtocolVersion" = "-4" ] && IPAddressUsed=`ubus call "network.interface" "status" $ubusInterface |jsonfilter -e '@["ipv4-address"][0].address'`
+	}
+	[ "$device" = "" ] && device=`awk '{ if($2 == "00000000") print $1;}' /proc/net/route`
+	format="size_upload: %{size_upload}\ntime_appconnect: %{time_appconnect}\n
+	time_connect: %{time_connect}\n time_namelookup: %{time_namelookup}\n
+	time_pretransfer: %{time_pretransfer}\ntime_redirect: %{time_redirect}\n
+	time_starttransfer: %{time_starttransfer}\ntime_total: %{time_total}\n"
+	curl_cmd="curl -w @- --connect-timeout 30 $ProtocolVersion --interface $device $timeout -T $UPLOAD_DIR/$UPLOAD_DIAGNOSTIC_FILE $up_url"
+	ubusname=`echo {\"name\":\"$device\"}`
+	Totalrxbytestart=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.rx_bytes`
+	Totaltxbytestart=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.tx_bytes`
+	start=`date +%Y-%m-%d`
+	if [ -n "$MeasurementInterval"  ] && [ -n "$TestDuration"  ]
+	then
+		testbytesent=0
+		n=$MeasurementInterval
+		lastbyte=$Totaltxbytestart;
+		ResultTime=`date +%Y-%m-%dT%T.%6N%z`
+		ResultTime=${ResultTime:0:29}:${ResultTime:29}
+		StartTime=`date +"%s.%6N"`
+		echo "$format" | $curl_cmd > $UPLOAD_DIR/res 2>&1 &
+		while [ $n -le $TestDuration ];do
+			n=`expr $n + $MeasurementInterval`
+			sleep $MeasurementInterval;
+			nb_tx_bytes=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.tx_bytes`
+			bytes=`expr $nb_tx_bytes - $lastbyte`
+			lastbyte=$nb_tx_bytes
+			if [ -n "$resultBytes"  ] 
+			then
+				resultBytes=$resultBytes,$bytes
+			else
+				resultBytes=$bytes
+			fi
+			Time=`date +%Y-%m-%dT%T.%6N%z`
+			Time=${Time:0:29}:${Time:29}
+			ResultTime=$ResultTime,$Time
+		done
+		rest=`expr $TestDuration % $MeasurementInterval`
+		[ $rest != 0 ] && {
+			timeout="-m $rest"
+			sleep $rest;
+			nb_tx_bytes=`ubus call "network.device" "status" $ubusname|jsonfilter -e @.statistics.tx_bytes`
+			bytes=`expr $nb_tx_bytes - $lastbyte`
+			Time=`date +%Y-%m-%dT%T.%6N%z`
+			Time=${Time:0:29}:${Time:29}
+			resultBytes=$resultBytes,$bytes
+			ResultTime=$ResultTime,$Time
+		}
+	else
+		StartTime=`date +"%s.%6N"`
+		echo "$format" | $curl_cmd > $UPLOAD_DIR/res 2>&1
+	fi
+	resCmd="cat $UPLOAD_DIR/res"
+	res=`$resCmd`
+	testbytesent=`$resCmd | grep "size_upload" | awk '{print $2}'`
+	log "testbytesent: $testbytesent"
+	testbytesent=${testbytesent%.*}
+	time_appconnect=`$resCmd | grep "time_appconnect" | awk '{print $2}'`
+	time_connect=`$resCmd | grep "time_connect" | awk '{print $2}'`
+	time_pretransfer=`$resCmd | grep "time_pretransfer" | awk '{print $2}'`
+	time_starttransfer=`$resCmd | grep "time_starttransfer" | awk '{print $2}'`
+	time_total=`$resCmd | grep "time_total" | awk '{print $2}'`
+	TCPOpenRequestTime=$(echo $StartTime $time_appconnect | awk '{printf "%.6f", $1 + $2}')
+	TCPOpenResponseTime=$(echo $StartTime $time_connect | awk '{printf "%.6f", $1 + $2}')
+	ROMTime=$(echo $StartTime $time_pretransfer | awk '{printf "%.6f", $1 + $2}')
+	BOMTime=$(echo $StartTime $time_starttransfer | awk '{printf "%.6f", $1 + $2}')
+	EOMTime=$(echo $StartTime $time_total | awk '{printf "%.6f", $1 + $2}')
+	Totalrxbytestop=`ubus call "network.device" "status" $ubusname |jsonfilter -e @.statistics.rx_bytes`
+	Totaltxbytestop=`ubus call "network.device" "status" $ubusname |jsonfilter -e @.statistics.tx_bytes`
+
+	cr=`echo "$res" | grep "Failed to connect"`
+	er=`echo "$res" | grep "Connection timed out"`
+	[ -n "$er" ]  && { 
+		state=Error_Timeout;
+		return; }
+	er=`echo "$res" | grep "Access denied"`
+	[ -n "$er" ]  && {
+		state=Error_LoginFailed;
+		return; }
+	er=`echo "$res" | grep "Server denied"`
+	[ -n "$er" ]  && {
+		state=Error_LoginFailed;
+		return; }
+
+	er=`echo "$res" | grep "Bad password"`
+	[ -n "$er" ]  && { 
+		state=Error_PasswordRequestFailed;
+		return; }
+	er=`echo "$res" | grep "Non-specific error"`
+	[ -n "$er" ]  && { 
+		state=Error_Other;
+		return; }
+
+		er=`echo "$res" | grep "Could not resolve host"`
+		[ -n "$er" ] && { state=Error_InitConnectionFailed; 
+		return; }
+	if [ -n "$cr" ] 
+	then
+		state=Error_CannotResolveHostName;
+
+	else
+		TotalbytesReceived=`expr $Totalrxbytestop - $Totalrxbytestart`
+		TotalbytesSent=`expr $Totaltxbytestop - $Totaltxbytestart`
+		state=Complete
+		separatorindex=`expr index $BOMTime .`
+		BOMTimemicroSec=${BOMTime:$separatorindex}
+		BOMTimeSec=${BOMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $ROMTime .`
+		ROMTimemicroSec=${ROMTime:$separatorindex}
+		ROMTimeSec=${ROMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $EOMTime .`
+		EOMTimemicroSec=${EOMTime:$separatorindex}
+		EOMTimeSec=${EOMTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $TCPOpenRequestTime .`
+		TCPOpenRequestTimemicroSec=${TCPOpenRequestTime:$separatorindex}
+		TCPOpenRequestTimeSec=${TCPOpenRequestTime:0:$(($separatorindex-1))}
+		separatorindex=`expr index $ROMTime .`
+		TCPOpenResponseTimemicroSec=${TCPOpenResponseTime:$separatorindex}
+		TCPOpenResponseTimeSec=${TCPOpenResponseTime:0:$(($separatorindex-1))}
+		outBOMTime=`date +"%Y-%m-%dT%H:%M:%S.$BOMTimemicroSec%z" -d @$BOMTimeSec`
+		outROMTime=`date +"%Y-%m-%dT%H:%M:%S.$ROMTimemicroSec%z" -d @$ROMTimeSec`
+		outEOMTime=`date +"%Y-%m-%dT%H:%M:%S.$EOMTimemicroSec%z" -d @$EOMTimeSec`
+		outTCPOpenRequestTime=`date +"%Y-%m-%dT%H:%M:%S.$TCPOpenRequestTimemicroSec%z" -d @$TCPOpenRequestTimeSec`
+		outTCPOpenResponseTime=`date +"%Y-%m-%dT%H:%M:%S.$TCPOpenResponseTimemicroSec%z" -d @$TCPOpenResponseTimeSec`
+		[ "$ROMTime" = "" ] && [ "$BOMTime" = "" ]  && [ "$EOMTime" = "" ] && { 
+			state="Error_Other"; 
+			rm -rf $UPLOAD_DIR/$FileFormat
+			return;
+		}
+
+	fi
+	rm -rf $UPLOAD_DIR/$UPLOAD_DIAGNOSTIC_FILE
+}
+
+
+event_dignostic() {
+	local e=1
+	local i=0
+	while [ "$e" != 0 -a $i -lt 3 ]; do	
+		ubus -t 1 call tr069 inform '{"event":"8 DIAGNOSTICS COMPLETE"}'
+		e=$?
+		[ "$e" != "0" ] && sleep 1;
+		let i++
+	done
+}
+
+upload_stop() {
+	local pids=`ps aux | grep upload_launch | grep -v grep | grep -v stop | awk '{print $2}'`
+	[ -z "$pids" ] && pids=`ps | grep upload_launch | grep -v grep | grep -v stop | awk '{print $1}'`
+	if [ -n "$pids" ]; then
+		kill -9 $pids 2>/dev/null
+		$UCI_SET_VARSTATE easycwmp.@local[0].uploadDiagnosticsState=None
+	fi
+}
+
+[ "$1" == "usp" ] && { upload_usp 2>/dev/null; exit 0; }
+[ "$1" == "run" ] && { upload_easycwmp 2>/dev/null; exit 0; }
+[ "$1" == "stop" ] && upload_stop 2>/dev/null
+

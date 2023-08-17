@@ -1,0 +1,25 @@
+Source-Makefile: feeds/packages/lang/php8-pecl-redis/Makefile
+Build-Depends: !BUILD_NLS:libiconv
+
+Package: php8-pecl-redis
+Submenu: PHP8
+Version: 5.3.7-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread php8 +php8-mod-session
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: lang
+Category: Languages
+Repository: base
+Title: PHP extension for interfacing with Redis
+Maintainer: Michael Heimpold <mhei@heimpold.de>
+Source: redis-5.3.7.tgz
+License: PHP-3.01
+LicenseFiles: COPYING
+Type: ipkg
+Description: PHP extension for interfacing with Redis
+http://pecl.php.net/
+Michael Heimpold <mhei@heimpold.de>
+@@
+
+

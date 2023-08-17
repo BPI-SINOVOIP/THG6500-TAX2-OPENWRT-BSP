@@ -1,0 +1,140 @@
+#!/bin/sh
+# Copyright (C) 2016 PIVA Software <www.pivasoftware.com>
+# 	Author: MOHAMED Kallel <mohamed.kallel@pivasoftware.com>
+
+[ "$1" != "run" -a "$1" != "stop" -a "$1" != "usp" ] && return
+TRACEROUTE_FILE="/var/obuspa/traceroute_usp"
+UCI_GET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state get"
+UCI_SET_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state set"
+UCI_ADD_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state add"
+UCI_DELETE_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state delete"
+UCI_SHOW_VARSTATE="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} -P /var/state show"
+
+traceroute_get() {
+	local val=`$UCI_GET_VARSTATE $1`
+	echo ${val:-$2}
+}
+
+traceroute_easycwmp() {
+	local i res host ip time=0
+	[ "`$UCI_GET_VARSTATE easycwmp.@local[0].TraceDiagnosticsState`" != "Requested" ] && return
+	local host=`traceroute_get easycwmp.@local[0].TraceHost`
+	local cnt=`traceroute_get easycwmp.@local[0].TraceNumberOfTries 3`
+	local dsize=`traceroute_get easycwmp.@local[0].TraceDataBlockSize 64`
+	local timeout=`traceroute_get easycwmp.@local[0].TraceTimeout 3000`
+	local maxhop=`traceroute_get easycwmp.@local[0].TraceMaxHops 30`
+	local ProtocolVersion=`traceroute_get easycwmp.@local[0].TraceProtocolVersion`
+	local Interface=`traceroute_get easycwmp.@local[0].TraceInterface`
+
+	[ "$host" = "" ] && return
+	delete_all_route_hops
+	traceroute_launch
+	$UCI_SET_VARSTATE easycwmp.@local[0].TraceDiagnosticsState=Complete
+	$UCI_SET_VARSTATE easycwmp.@local[0].TraceNumberOfHops=$i
+	$UCI_SET_VARSTATE easycwmp.@local[0].TraceResponseTime=$($UCI_GET_VARSTATE easycwmp.@RouteHops[-1].time)
+	event_diagnostic
+}
+
+traceroute_usp() {
+	local i res host ip time=0
+	local host=`awk -F 'Host:' '/Host:/ {print $2}' $TRACEROUTE_FILE`
+	local cnt=`awk -F'[=: ]' '/NumberOfTries:/ {print $2}' $TRACEROUTE_FILE`
+	local dsize=`awk -F'[=: ]' '/DataBlockSize:/ {print $2}' $TRACEROUTE_FILE`
+	local timeout=`awk -F'[=: ]' '/Timeout:/ {print $2}' $TRACEROUTE_FILE`
+	local maxhop=`awk -F'[=: ]' '/MaxHopCount:/ {print $2}' $TRACEROUTE_FILE`
+	local ProtocolVersion=`awk -F'[=: ]' '/ProtocolVersion:/ {print $2}' $TRACEROUTE_FILE`
+	local Interface=`awk -F'[=: ]' '/Interface:/ {print $2}' $TRACEROUTE_FILE`
+	
+	rm -rf $TRACEROUTE_FILE
+	[ "$host" = "" ] && return
+	[ "$maxhop" = "" ]  && maxhop="30"
+	[ "$dsize" = "" ] && dsize="64"
+	[ "$cnt" = "" ] && cnt="3"
+	[ "$timeout" = "" ] && timeout="3000"
+	local action="usp"
+	traceroute_launch
+	echo "Status:Complete" 2>&1 >> $TRACEROUTE_FILE
+	time=`awk -F'[=: ]' '/RouteHops/ {print $2}' $TRACEROUTE_FILE  | tail -1`
+	echo "ResponseTime:$time" 2>&1 >> $TRACEROUTE_FILE
+}
+
+traceroute_launch() {
+	if [ "$ProtocolVersion" = "IPv4" ] 
+	then
+		  ProtocolVersion="-4"
+	elif [ "$ProtocolVersion" = "IPv6" ]
+	then
+		 ProtocolVersion="-6"
+	else
+	ProtocolVersion=""
+	fi
+	[ "$Interface" != "" ] && {
+		ubusInterface=`echo {\"interface\":\"$Interface\"}`
+		device=`ubus call "network.interface" "status" $ubusInterface|jsonfilter -e @.device`
+	}
+	if [ "$device" != "" ] 
+	then
+		Device=`echo -i $device`
+	else
+		Device=""
+	fi
+
+	timeout=$((timeout/1000))
+	[ "$timeout" = "0" ] && timeout="1"
+	i=-2
+	rm -f /tmp/traceres
+	traceroute $ProtocolVersion $Device -m $maxhop -w $timeout -q $cnt $host $dsize 2>&1 >/tmp/traceres
+	while read _ host ip time _; do
+		[ "$host" = "*" -a "$ip" = "*" ] && continue
+		let i++
+		[ "$i" = "-1" ] && { [ "$action" = "usp" ] && i="0"; continue;}
+		ip=${ip#(}; ip=${ip%)}
+		time=${time%.*}
+	if [ "$action" = "usp" ] 
+	then
+	echo "RouteHops.$i.Host:$host" 2>&1 >> $TRACEROUTE_FILE
+	echo "RouteHops.$i.HostAddress:$ip" 2>&1 >> $TRACEROUTE_FILE
+	echo "RouteHops.$i.RTTimes:$time" 2>&1 >> $TRACEROUTE_FILE
+	else
+		$UCI_ADD_VARSTATE easycwmp RouteHops
+		$UCI_SET_VARSTATE easycwmp.@RouteHops[$i].host=$host
+		$UCI_SET_VARSTATE easycwmp.@RouteHops[$i].ip=$ip
+		$UCI_SET_VARSTATE easycwmp.@RouteHops[$i].time=$time
+	fi
+
+	done < /tmp/traceres
+	rm -f /tmp/traceres
+	let i++
+}
+
+delete_all_route_hops() {
+	local j
+	for j in $($UCI_SHOW_VARSTATE easycwmp | grep "easycwmp.@RouteHops.*=RouteHops"); do
+		$UCI_DELETE_VARSTATE easycwmp.@RouteHops[-1]
+	done
+}
+
+event_diagnostic() {
+	local e=1
+	local i=0
+	while [ "$e" != 0 -a $i -lt 3 ]; do	
+		ubus -t 1 call tr069 inform '{"event":"8 DIAGNOSTICS COMPLETE"}'
+		e=$?
+		[ "$e" != "0" ] && sleep 1;
+		let i++
+	done
+}
+
+traceroute_stop() {
+	delete_all_route_hops
+	local pids=`ps aux | grep traceroute_launch | grep -v grep | grep -v stop | awk '{print $2}'`
+	[ -z "$pids" ] && pids=`ps | grep traceroute_launch | grep -v grep | grep -v stop | awk '{print $1}'`
+	if [ -n "$pids" ]; then
+		kill -9 $pids 2>/dev/null
+		$UCI_SET_VARSTATE easycwmp.@local[0].TraceDiagnosticsState=None
+	fi
+}
+
+[ "$1" == "usp" ] && { traceroute_usp 2>/dev/null; exit 0; }
+[ "$1" == "run" ] && { traceroute_easycwmp 2>/dev/null; exit 0; }
+[ "$1" == "stop" ] && traceroute_stop 2>/dev/null

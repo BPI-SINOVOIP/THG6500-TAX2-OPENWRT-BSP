@@ -1,0 +1,21 @@
+Source-Makefile: feeds/packages/net/ieee8021xclient/Makefile
+
+Package: ieee8021xclient
+Version: 0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(PACKAGE_wpa-supplicant||PACKAGE_wpad)
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Wired 802.1x client config support
+Maintainer: David Yang <mmyangfl@gmail.com>
+Source: 
+License: GPL-2.0-or-later
+Type: ipkg
+Description:   Wired 802.1x client config support in /etc/config/network.
+David Yang <mmyangfl@gmail.com>
+@@
+
+

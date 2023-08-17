@@ -1,0 +1,24 @@
+Source-Makefile: feeds/packages/net/cni-route-override/Makefile
+Build-Depends: golang/host
+
+Package: cni-route-override
+Version: 0.1-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread @(aarch64||arm||i386||i686||mips||mips64||mips64el||mipsel||powerpc64||x86_64)
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Meta CNI plugin for overriding IP route
+Maintainer: Oskari Rauta <oskari.rauta@gmail.com>
+Source: cni-route-override-0.1.tar.xz
+License: Apache-2.0
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   route-override IPAM works as meta CNI plugin to override IP route given by previous CNI plugins.
+https://github.com/redhat-nfvpe/cni-route-override/
+Oskari Rauta <oskari.rauta@gmail.com>
+@@
+
+

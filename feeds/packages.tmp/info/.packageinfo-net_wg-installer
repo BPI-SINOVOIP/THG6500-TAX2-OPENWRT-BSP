@@ -1,0 +1,78 @@
+Source-Makefile: feeds/packages/net/wg-installer/Makefile
+
+Package: wg-installer-server
+Menu: 1
+Version: 0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +kmod-wireguard +wireguard-tools +owipcalc +rpcd +uhttpd +uhttpd-mod-ubus +coreutils-dirname
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: WireGuard Installer (server)
+Maintainer: Nick Hainke <vincent@systemli.org>
+Source: 
+Type: ipkg
+Description: WireGuard Installer (server)
+https://github.com/Freifunk-Spalter/
+Nick Hainke <vincent@systemli.org>
+@@
+
+Package: wg-installer-server-hotplug-babeld
+Menu: 1
+Version: 0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread wg-installer-server
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: WireGuard Installer (server)
+Maintainer: Nick Hainke <vincent@systemli.org>
+Source: 
+Type: ipkg
+Description: WireGuard Installer (server)
+https://github.com/Freifunk-Spalter/
+Nick Hainke <vincent@systemli.org>
+@@
+
+Package: wg-installer-server-hotplug-olsrd
+Menu: 1
+Version: 0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread wg-installer-server
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: WireGuard Installer (server)
+Maintainer: Nick Hainke <vincent@systemli.org>
+Source: 
+Type: ipkg
+Description: WireGuard Installer (server)
+https://github.com/Freifunk-Spalter/
+Nick Hainke <vincent@systemli.org>
+@@
+
+Package: wg-installer-client
+Version: 0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +kmod-wireguard +wireguard-tools +owipcalc +curl
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: WireGuard Installer (client)
+Maintainer: Nick Hainke <vincent@systemli.org>
+Source: 
+Type: ipkg
+Description: WireGuard Installer (client)
+https://github.com/Freifunk-Spalter/
+Nick Hainke <vincent@systemli.org>
+@@
+
+

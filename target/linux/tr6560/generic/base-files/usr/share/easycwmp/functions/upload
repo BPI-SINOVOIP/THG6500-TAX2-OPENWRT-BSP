@@ -1,0 +1,95 @@
+#!/bin/sh
+# Copyright (C) 2018 PIVA Software <www.pivasoftware.com>
+# 	Author: Ahmed Sahnoun <ahmed.sahnoun@pivasoftware.com>
+
+# Fault codes
+E_REQUEST_DENIED="1"
+E_INTERNAL_ERROR="2"
+E_INVALID_ARGUMENTS="3"
+E_RESOURCES_EXCEEDED="4"
+E_INVALID_PARAMETER_TYPE="6"
+E_INVALID_PARAMETER_VALUE="7"
+E_NON_WRITABLE_PARAMETER="8"
+E_NOTIFICATION_REJECTED="9"
+E_UPLOAD_FAILURE="11"
+E_FILE_TRANSFER_AUTHENTICATION_FAILURE="12"
+E_FILE_TRANSFER_UNSUPPORTED_PROTOCOL="13"
+UCI_COMMIT="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} commit"
+UCI_GET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} get"
+
+action="$1"
+file_type="$2"
+up_url="$3"
+user_name="$4"
+password="$5"
+
+SSL_CACERT=`$UCI_GET easycwmp.@acs[0].ssl_cacert`
+SSL_CERT=`$UCI_GET easycwmp.@acs[0].ssl_cert`
+
+OPTS_CERTS="${SSL_CACERT:+--cacert $SSL_CACERT} ${SSL_CERT:+--cert $SSL_CERT}"
+
+debug() {
+	echo "$1" >&2
+}
+
+upload() {
+
+	SERIAL_NUMBER=`$UCI_GET easycwmp.@device[0].serial_number`
+	case "$file_type" in
+	*"Vendor Log File"*)
+		logread > "/tmp/log$SERIAL_NUMBER.log"
+		if [ "$user_name" != "" ]; then
+			curl --user "$user_name:$password" $OPTS_CERTS --connect-timeout 30 --upload-file /tmp/log$SERIAL_NUMBER.log $up_url
+			fault_code="$?"
+		else
+			curl $OPTS_CERTS --connect-timeout 30 -T  "/tmp/log$SERIAL_NUMBER.log" "$up_url"
+			fault_code="$?"
+		fi
+		rm -f "/tmp/log$SERIAL_NUMBER.log"
+	;;
+	*"Vendor Configuration File"*)
+		sysupgrade --create-backup "/tmp/config$SERIAL_NUMBER.tar.gz"
+		if [ "$user_name" != "" ]; then
+			curl --user "$user_name:$password" $OPTS_CERTS --connect-timeout 30 --upload-file /tmp/config$SERIAL_NUMBER.tar.gz $up_url		
+			fault_code="$?"	
+		else
+			curl $OPTS_CERTS --connect-timeout 30 -T  "/tmp/config$SERIAL_NUMBER.tar.gz" "$up_url"
+			fault_code="$?"
+		fi
+		rm -f "/tmp/config$SERIAL_NUMBER.tar.gz"
+	;;
+	*)
+		echo  "$(($E_INVALID_ARGUMENTS+9000))"
+		return
+	;;
+	esac
+	if [ "$fault_code" != "0" ]; then
+		let fault_code=9000+$E_UPLOAD_FAILURE
+		echo "$fault_code"
+	else
+		echo "0"
+	fi
+	return
+}
+
+upload3() {
+
+	if [ "$user_name" != "" ]; then
+		curl --user "$user_name:$password" $OPTS_CERTS --connect-timeout 30 --upload-file /etc/config/$file_type $up_url
+		fault_code="$?"			
+	else
+		curl $OPTS_CERTS --connect-timeout 30 -T  "/etc/config/$file_type" "$up_url"
+		fault_code="$?"
+	fi	
+
+	if [ "$fault_code" != "0" ]; then
+		let fault_code=9000+$E_UPLOAD_FAILURE
+		echo "$fault_code"
+	else
+		echo "0"
+	fi
+	return
+}
+
+[ "$action" == "upload" ] && { upload; exit 0; } 
+[ "$action" == "upload3" ] && { upload3; exit 0; }

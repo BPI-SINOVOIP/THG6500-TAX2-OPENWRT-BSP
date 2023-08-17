@@ -1,0 +1,9 @@
+. /lib/functions/network.sh
+
+[ ifup = "$ACTION" ] && {
+	nlc=`ps | grep app_nlc | grep -v grep`
+	[ -z "$nlc" ] && app_nlc > /dev/null 2>&1 &
+
+	acs=`ps | grep app_acs | grep -v grep`
+	[ -z "$acs" ] && app_acs > /dev/null 2>&1 &
+}

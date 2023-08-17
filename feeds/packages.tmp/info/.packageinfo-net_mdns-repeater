@@ -1,0 +1,23 @@
+Source-Makefile: feeds/packages/net/mdns-repeater/Makefile
+
+Package: mdns-repeater
+Version: 2020-05-03-921d8850e988d0bd8d60899d933c4ad3094d73ca-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread 
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: Multicast DNS repeater for Linux
+Maintainer: Alexander Koenig <alex@lisas.de>
+Source: mdns-repeater-2020-05-03-921d8850e988d0bd8d60899d933c4ad3094d73ca.tar.xz
+License: GPL-2.0-or-later
+LicenseFiles: LICENSE.txt
+Type: ipkg
+Description: Multicast DNS repeater for Linux
+https://github.com/kennylevinsen/mdns-repeater
+Alexander Koenig <alex@lisas.de>
+@@
+
+

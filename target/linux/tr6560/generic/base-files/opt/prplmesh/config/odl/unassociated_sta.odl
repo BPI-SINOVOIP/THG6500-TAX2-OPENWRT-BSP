@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2022 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements.Network.Device.Radio.UnassociatedSTA {
+        %read-only string MACAddress = "00:00:00:00:00:00";
+        %read-only uint32 SignalStrength = 0 {
+            on action validate call check_range [0, 220];
+        }
+        %read-only datetime TimeStamp;
+    }
+}

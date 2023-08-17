@@ -1,0 +1,13 @@
+
+config local
+
+config udpclient 'udpclient'
+	option Port ''
+	option loglevel '4'
+	option UDPEchoDiagnosticsState ''
+	option Host ''
+	option NumberOfRepetitions ''
+	option Timeout ''
+	option EnableIndividualPacketResults ''
+	option interface ''
+

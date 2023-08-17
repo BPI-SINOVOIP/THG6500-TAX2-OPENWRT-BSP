@@ -1,0 +1,61 @@
+extract_dhcp_option_value() {
+	local data=$1
+	local code=$2
+	local option_value=""
+
+	index=0
+	while [ $index -lt ${#data} ]; do
+		option_code=$(echo ${data:$index:2})
+		index=$((index + 2))
+
+		option_length_hex=$(echo ${data:$index:2})
+		option_length=$(printf "%d" 0x$option_length_hex)
+		index=$((index + 2))
+
+		if [ X"$option_code" == X"$code" ]; then
+			option_value=$(echo ${data:$index:$(($option_length * 2))})
+			break
+		fi
+		index=$((index + (option_length * 2)))
+	done
+	echo $option_value
+}
+
+hex_to_ascii() {
+	local hex=$1
+	local len=${#hex}
+	local ascii=""
+
+	i=0
+	while [ $i -lt $len ]; do
+		substr="${hex:i:2}"
+		ascii_character=$(printf "\\x$substr")
+		ascii="$ascii""$ascii_character"
+		i=$((i + 2))
+	done
+	echo $ascii
+}
+
+deal_option() {
+#option 43
+	if [ -n "$opt43" ]; then
+		#Code=0x01;ACS URL
+		local option_code="01"
+		local oldUrl=`uci get easycwmp.@acs[0].url`
+
+		option_value=$(extract_dhcp_option_value $opt43 $option_code)
+		option_value_to_ascii=$(hex_to_ascii $option_value)
+		if [ X"$oldUrl" != X"$option_value_to_ascii" ]; then
+			uci set easycwmp.@acs[0].url=$option_value_to_ascii
+			ubus call uci commit '{"config":"easycwmp"}'
+		fi
+	fi
+#others,TODO
+}
+
+case "$1" in
+        renew|bound)
+                deal_option
+        ;;
+esac
+

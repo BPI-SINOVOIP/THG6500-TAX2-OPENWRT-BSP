@@ -1,0 +1,27 @@
+Source-Makefile: feeds/packages/admin/rsyslog/Makefile
+
+Package: rsyslog
+Menu: 1
+Version: 8.2110.0-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +RSYSLOG_gssapi_krb5:krb5-libs +RSYSLOG_elasticsearch:libcurl +RSYSLOG_libdbi:libdbi +libestr +libfastjson +RSYSLOG_gnutls:libgnutls +RSYSLOG_mmdblookup:libmaxminddb +RSYSLOG_mysql:libmysqlclient +RSYSLOG_omhttp:libcurl +RSYSLOG_openssl:libopenssl +RSYSLOG_pgsql:libpq +libuuid +zlib
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: admin
+Category: Administration
+Repository: base
+Title: Enhanced system logging and kernel message trapping daemons
+Maintainer: 
+Source: rsyslog-8.2110.0.tar.gz
+License: GPL-3.0-or-later
+LicenseFiles: COPYING
+Type: ipkg
+Description: Enhanced system logging and kernel message trapping daemons
+https://www.rsyslog.com/
+
+@@
+Config:
+  source "feeds/packages/admin/rsyslog/Config.in"
+@@
+
+

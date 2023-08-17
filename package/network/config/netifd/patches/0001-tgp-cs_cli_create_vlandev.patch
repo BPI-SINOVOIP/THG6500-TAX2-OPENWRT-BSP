@@ -1,0 +1,54 @@
+diff -aur old/system-linux.c new/system-linux.c
+--- old/system-linux.c	2022-08-26 03:13:35.000000000 +0800
++++ new/system-linux.c	2023-03-17 19:19:52.611224832 +0800
+@@ -1545,6 +1545,40 @@
+ 	return system_vlan(dev, -1);
+ }
+ 
++#if TARGET == tr6560
++#define MAX_CMD_LEN 256
++int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
++{
++	char cmd[MAX_CMD_LEN];
++
++	if(cfg->proto == VLAN_PROTO_8021AD)
++	{
++		netifd_log_message(L_CRIT, "Create vlan dev failed, don't support 802.1ad");
++		return -EPROTONOSUPPORT;
++	}
++
++	snprintf(cmd, sizeof(cmd), "cs_cli /home/cli/api/intf/add -v fatherifname %s ifname %s mapmode 4 vid %d",
++		dev->ifname, vlandev->ifname, cfg->vid);
++	netifd_log_message(L_NOTICE, "cmd=%s", cmd);
++	system(cmd);
++
++
++	return 0;
++}
++
++
++int system_vlandev_del(struct device *vlandev)
++{
++	char cmd[MAX_CMD_LEN];
++
++	snprintf(cmd, sizeof(cmd), "cs_cli /home/cli/api/intf/delete -v ifname %s", vlandev->ifname);
++	netifd_log_message(L_NOTICE, "cmd=%s", cmd);
++	system(cmd);
++
++	return 0;
++}
++
++#else
+ int system_vlandev_add(struct device *vlandev, struct device *dev, struct vlandev_config *cfg)
+ {
+ 	struct nl_msg *msg;
+@@ -1619,6 +1653,9 @@
+ 	return system_link_del(vlandev->ifname);
+ }
+ 
++#endif
++
++
+ static void
+ system_set_ethtool_settings(struct device *dev, struct device_settings *s)
+ {

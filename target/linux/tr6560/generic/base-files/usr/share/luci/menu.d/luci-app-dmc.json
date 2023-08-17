@@ -1,0 +1,14 @@
+{
+	"admin/services/management/datamodel": {
+		"title": "Datamodel",
+		"order": 3,
+		"action": {
+			"type": "view",
+			"path": "datamodel/dmc"
+		},
+		"depends": {
+			"acl": [ "luci-app-dmc" ],
+			"fs": { "/usr/sbin/datamodel": "executable" },
+		}
+	}
+}

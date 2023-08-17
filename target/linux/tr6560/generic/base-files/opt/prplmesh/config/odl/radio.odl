@@ -1,0 +1,170 @@
+
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ *
+ * SPDX-FileCopyrightText: 2020-2022 the prplMesh contributors (see AUTHORS.md)
+ *
+ * This code is subject to the terms of the BSD+Patent license.
+ * See LICENSE file for more details.
+ */
+
+%config {
+    define-behavior = {
+        existing-object = "update"
+    };
+}
+
+%define {
+    select Device.WiFi.DataElements.Network.Device.Radio {
+
+        bool Enabled = false;
+        %read-only string ID = "00:00:00:00:00:00";
+        %read-only string ChipsetVendor;
+
+        %read-only uint32 Noise = 0 {
+            on action validate call check_range [0, 255];
+        }
+        %read-only uint32 Utilization = 0 {
+            on action validate call check_range [0, 255];
+        }
+        %read-only uint32 Transmit = 0 {
+            on action validate call check_range [0, 255];
+        }
+        %read-only uint32 ReceiveSelf = 0 {
+            on action validate call check_range [0, 255];
+        }
+        %read-only uint32 ReceiveOther = 0 {
+            on action validate call check_range [0, 255];
+        }
+
+        %read-only bool TrafficSeparationCombinedFronthaul;
+        %read-only bool TrafficSeparationCombinedBackhaul;
+
+        uint32 STAReportingRCPIThreshold {
+            on action validate call check_range [0, 220];
+        }
+        uint32 STAReportingRCPIHysteresisMarginOverride;
+        uint32 ChannelUtilizationReportingThreshold;
+
+        bool AssociatedSTATrafficStatsInclusionPolicy;
+        bool AssociatedSTALinkMetricsInclusionPolicy;
+        bool APMetricsWiFi6;
+
+        uint32 SteeringPolicy {
+            on action validate call check_range [0, 2];
+        }
+        uint32 ChannelUtilizationThreshold {
+            on action validate call check_range [0, 255];
+        }
+        uint32 RCPISteeringThreshold {
+            on action validate call check_range [0, 220];
+        }
+
+        object CurrentOperatingClasses [] {
+            counted with CurrentOperatingClassesNumberOfEntries;
+            %read-only datetime TimeStamp = "2020-08-31T11:22:39Z";
+            %read-only uint32 Class = 0 {
+                on action validate call check_range [0, 255];
+            }
+            %read-only uint32 Channel = 0 {
+                on action validate call check_range [0, 255];
+            }
+            %read-only int32 TxPower = 0 {
+                on action validate call check_range [-127, 127];
+            }
+        }
+
+        %template %instance bool ScanTrigger(
+            %in %mandatory string channels_list,
+            %in %mandatory uint32 channels_num
+        );
+
+        %instance bool TriggerVBSSCreation(
+            %in %mandatory string vbssid,
+            %in %mandatory string client_mac,
+            %in %mandatory string ssid,
+            %in %mandatory string pass
+        );
+
+        object Capabilities;
+
+        object BSS [] {
+            counted with BSSNumberOfEntries;
+        }
+
+        object BackhaulSta {
+            %read-only string MACAddress = "";
+        }
+
+        object UnassociatedSTA []{
+            counted with UnassociatedSTANumberOfEntries;
+        }
+
+        /* Add a new  unassociated station to the UnassociatedSTA object*/
+        %instance bool AddUnassociatedStation(
+                %in %mandatory string un_station_mac,
+                %in %mandatory uint8 channel,
+                %in %mandatory uint8 operating_class,
+                %in string agent_mac
+        );
+
+        /* Remove an unassociated station from the UnassociatedSTA object*/
+        %instance bool RemoveUnassociatedStation(
+            %in %mandatory string un_station_mac
+        );
+
+        %read-only object ScanResult [] {
+            counted with ScanResultNumberOfEntries;
+        }
+
+        /* Describes the Channel Availability Check (CAC) capabilities of a radio */
+        %read-only object CACCapability {
+            %read-only object CACMethod [] {
+                counted with CACMethodNumberOfEntries;
+
+                %read-only uint32 Method;
+                %read-only uint32 NumberOfSeconds = 0;
+
+                %read-only object OpClassChannels [] {
+                    counted with OpClassChannelsNumberOfEntries;
+
+                    %read-only uint32 OpClass = 0 {
+                        on action validate call check_range [0, 255];
+                    }
+
+                    %read-only object Channel [] {
+                        counted with ChannelNumberOfEntries;
+                        %read-only uint32 Channel = 0 {
+                            on action validate call check_range [0, 255];
+                        }
+                    }
+                }
+            }
+        }
+
+        /* Describes the channel scan capabilities of a radio */
+        %read-only object ScanCapability {
+
+            %read-only bool OnBootOnly;
+            %read-only uint32 Impact = 0 {
+                on action validate call check_range [0, 3];
+            }
+            %read-only uint32 MinimumInterval = 0;
+
+            %read-only object OpClassChannels [] {
+                counted with OpClassChannelsNumberOfEntries;
+
+                %read-only uint32 OpClass = 0 {
+                    on action validate call check_range [0, 255];
+                }
+
+                %read-only object Channel [] {
+                    counted with ChannelNumberOfEntries;
+                    %read-only uint32 Channel = 0 {
+                        on action validate call check_range [0, 255];
+                    }
+                }
+            }
+        }
+
+    }
+}

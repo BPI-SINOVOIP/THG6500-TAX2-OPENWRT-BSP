@@ -1,0 +1,26 @@
+Source-Makefile: feeds/packages/libs/jose/Makefile
+Build-Depends: openssl
+
+Package: jose
+Version: 11-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +jansson
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: utils
+Category: Extra packages
+Repository: base
+Title: Provides a full crypto stack including key generation, signing and encryption.
+Maintainer: Tibor Dudlák <tibor.dudlak@gmail.com>
+Source: jose-11.tar.xz
+License: Apache-2.0
+LicenseFiles: COPYING
+Type: ipkg
+Description: 	jose is a command line utility for performing various tasks on JSON
+	Object Signing and Encryption (JOSE) objects. José provides a full
+	crypto stack including key generation, signing and encryption.
+https://github.com/latchset/jose
+Tibor Dudlák <tibor.dudlak@gmail.com>
+@@
+
+

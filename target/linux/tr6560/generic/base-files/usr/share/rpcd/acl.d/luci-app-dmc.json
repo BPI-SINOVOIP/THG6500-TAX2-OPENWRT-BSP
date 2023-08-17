@@ -1,0 +1,17 @@
+{
+	"luci-app-dmc": {
+		"description": "CLI of Datamodel",
+		"read": {
+			"file": {
+				"/usr/sbin/datamodel": [ "exec" ],
+				"/tmp/.dmc_luci_input": [ "read" ]
+			},
+		},
+		"write": {
+			"file": {
+				"/tmp/.dmc_luci_input": [ "write" ]
+			},
+		}
+	}
+}
+

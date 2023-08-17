@@ -1,0 +1,147 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+iface_index=0
+iface_cnt=0
+wifi_table=""
+VTABLE_FILE="/tmp/vport_table"
+
+wifi_iface_cb() {
+        section_name=$1
+	devname=$2
+        mode=`uci -q get wireless.${section_name}.mode`
+        ifname=`uci -q -P /var/state/ get wireless.${section_name}.ifname`
+        device=`uci -q get wireless.${section_name}.device`
+	[ $device = $wlan0_devname ] || [ $device = $wlan1_devname ] && [ $mode = "ap" ] && {
+	iface_cnt=`expr $iface_cnt + 1`
+	}
+	[ $ifname = $devname ] && {
+	iface_index=$iface_cnt
+	wifi_table="iface_index=$iface_index;mode=$mode;ifname=$ifname;device=$device; "
+	return
+	}
+
+}
+
+vptable_index_to_line() {
+	tb_index=$1
+	file_path=$2
+	line_num=0
+	for line in `cat $file_path`
+	do
+		line_num=`expr $line_num + 1`
+		if echo $line | grep -q "iface_index=$tb_index"; then
+			echo $line_num	
+			return
+		fi
+	done
+}
+
+vptable_ifname_to_tb() {
+	tb_ifname=$1
+	file_path=$2
+	for line in `cat $file_path`
+	do
+		if echo $line | grep -q "ifname=$tb_ifname"; then
+			#tb_index=`echo $line | awk -F '[=;]' '{print $2}'`
+			#logger -t triwlan "echo $line | awk -F ;tb_index=$tb_index;"
+			echo $line
+			return
+		fi
+	done
+	
+
+}
+
+wlan0_devname="radio0"
+wlan1_devname="radio1"
+extport0_name="cpu1"
+extport1_name="cpu2"
+vport0_name="vcpu1"
+vport1_name="vcpu2"
+
+
+[ add = "$ACTION" ] && {
+
+	config_load wireless
+	config_foreach wifi_iface_cb wifi-iface $DEVICENAME
+
+	[ -z "$wifi_table" ] && return 1
+	checkmode=`echo $wifi_table | grep "mode=ap"`
+	[ -z "$checkmode" ] && return 1
+
+	logger -t triwlan "add:DEVICENAME=$DEVICENAME,wifi_table=$wifi_table;iface_index=$iface_index;"
+
+	ret=$(vptable_index_to_line $iface_index $VTABLE_FILE)
+	#logger -t triwlan "ret=$ret; vptable_index_to_line $iface_index $VTABLE_FILE ;"
+	if [ -n "$ret" ]; then
+		sed -i "$ret c\\$wifi_table" $VTABLE_FILE
+	else
+		echo $wifi_table >> $VTABLE_FILE
+	fi
+
+
+	if echo $wifi_table | grep -q "$wlan0_devname"; then
+		logger -t triwlan "this is wlan0 case"
+		#load ko
+		if [ ! -d /sys/module/tri_kcfe_wifi/ ]; then
+			logger -t triwlan "$ifnameDefaultRadio0: insmod tri_kcfe_wifi.ko "
+			insmod /lib/modules/5.10.138/tri_kcfe_wifi.ko
+		fi
+
+		if ! ip a |grep -q "$vport0_name"; then
+			logger -t triwlan "DEVICENAME=$DEVICENAME, addroot $vport0_name"
+			cs_cli /home/cli/api/protocol/cfe/intf/addroot -v fatherifname eth0 ifname $extport0_name porttype 4 phyport 13 vlan 1
+			cs_cli /home/cli/api/protocol/cfe/intf/addroot -v fatherifname eth0 ifname $vport0_name porttype 8 phyport 13 chn 1
+		fi
+
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/add -v fatherifname $vport0_name ifname $vport0_name-$iface_index mapmode 0x4"
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/relateif -v orgifname $DEVICENAME extifname $vport0_name-$iface_index"
+		cs_cli /home/cli/api/protocol/cfe/intf/add -v fatherifname $vport0_name ifname $vport0_name-$iface_index mapmode 0x4
+		cs_cli /home/cli/api/protocol/cfe/intf/relateif -v orgifname $DEVICENAME extifname $vport0_name-$iface_index
+
+	elif echo $wifi_table | grep -q "$wlan1_devname"; then
+		logger -t triwlan "this is wlan1 case"
+		#load ko
+		if [ ! -d /sys/module/tri_kcfe_wifi/ ]; then
+			logger -t triwlan "$ifnameDefaultRadio0: insmod tri_kcfe_wifi.ko "
+			insmod /lib/modules/5.10.138/tri_kcfe_wifi.ko
+		fi
+		
+		if ! ip a |grep -q "$vport1_name"; then
+			logger -t triwlan "DEVICENAME=$DEVICENAME, addroot $vport1_name"
+			cs_cli /home/cli/api/protocol/cfe/intf/addroot -v fatherifname eth0 ifname $extport1_name porttype 4 phyport 14 vlan 1
+			cs_cli /home/cli/api/protocol/cfe/intf/addroot -v fatherifname eth0 ifname $vport1_name porttype 8 phyport 14 chn 3
+		fi
+
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/add -v fatherifname $vport1_name ifname $vport1_name-$iface_index mapmode 0x4"
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/relateif -v orgifname $DEVICENAME extifname $vport1_name-$iface_index"
+		cs_cli /home/cli/api/protocol/cfe/intf/add -v fatherifname $vport1_name ifname $vport1_name-$iface_index mapmode 0x4
+		cs_cli /home/cli/api/protocol/cfe/intf/relateif -v orgifname $DEVICENAME extifname $vport1_name-$iface_index
+	fi
+
+}
+
+
+[ remove = "$ACTION" ] && {
+
+	vpot_tb=$(vptable_ifname_to_tb $DEVICENAME $VTABLE_FILE)
+	[ -z "$vpot_tb" ] && return 1
+
+	logger -t triwlan "remove:DEVICENAME=$DEVICENAME;vpot_tb=$vpot_tb;"
+
+	tb_index=`echo $vpot_tb | awk -F '[=;]' '{print $2}'`
+	[ -z "$tb_index" ] && return 1
+
+	if echo $vpot_tb | grep -q "$wlan0_devname"; then
+		logger -t triwlan "this is wlan0 case"
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/delete -v ifname $vport0_name-$tb_index"
+      		cs_cli /home/cli/api/protocol/cfe/intf/delete -v ifname $vport0_name-$tb_index
+
+	elif echo $vpot_tb | grep -q "$wlan1_devname"; then
+		logger -t triwlan "this is wlan1 case"
+		logger -t triwlan "cs_cli /home/cli/api/protocol/cfe/intf/delete -v ifname $vport1_name-$tb_index"
+      		cs_cli /home/cli/api/protocol/cfe/intf/delete -v ifname $vport1_name-$tb_index
+	fi
+}

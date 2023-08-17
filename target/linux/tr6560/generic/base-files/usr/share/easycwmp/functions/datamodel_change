@@ -1,0 +1,15 @@
+#!/bin/sh
+
+type="$1"
+
+/etc/init.d/easycwmpd stop
+
+if [ $type == "181" ]; then
+        cp /etc/easycwmp/easycwmp181 /etc/config/easycwmp
+        cp /usr/sbin/dmc181 /usr/sbin/datamodel
+else
+        cp /etc/easycwmp/easycwmp098 /etc/config/easycwmp
+        cp /usr/sbin/dmc098 /usr/sbin/datamodel
+fi
+
+/etc/init.d/easycwmpd start

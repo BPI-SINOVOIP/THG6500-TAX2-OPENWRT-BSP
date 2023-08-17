@@ -1,0 +1,353 @@
+/*
+ * dts file for TRIDUCTOR Ltd. tr6560  Board
+ *
+ * Copyright (C) 2021-07-29, TRIDUCTOR Ltd.
+ *
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+ 
+/dts-v1/;
+
+/ {
+	compatible = "triductor,tr6560";
+	#address-cells = <1>;
+	#size-cells = <1>;   
+	interrupt-parent = <&gic>;
+	
+	chosen {
+		bootargs = "noinitrd mem=110M@0x80000000 console=ttyS1,115200  mtdparts=10a20000.fmc:512K(boot),8M(kernela),16M(rootfsa)";
+	};
+	
+	cpus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		enable-method = "tri,tr6560-cpu-method";
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a9";
+			reg = <0x0>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a9";
+			reg = <0x1>;
+		};
+	};
+	
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		lsw_napt_reserved: lsw_napt@0x80000000 {
+			compatible = "tri,lsw_napt_reserved"; 
+			reg = <0x80000000 0x600000>;
+			no-map;
+		};
+		flashinfo_reserved: flashinfo@0x80c00000 {
+			compatible = "tri,flashinfo_reserved"; 
+			reg = <0x80600000 0x4000>; /* kernel boot-param mem 16K */
+			no-map;
+		};
+	};
+
+	gic: interrupt-controller {
+		compatible = "arm,cortex-a9-gic"; 
+		#interrupt-cells = <0x3>;
+		#address-cells = <0x0>;
+		interrupt-controller;
+		/* gic dist base, gic cpu base */
+		reg = <0x10181000 0x1000>, 
+			<0x10180100 0x100>; 
+	};
+
+	scu@0x10180000 {
+		compatible = "arm,cortex-a9-scu";
+		reg = <0x10180000 0x1000>;
+	};
+	
+	sysctrl: system-controller@10100000 {
+			compatible = "tri,sysctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x10100000 0x1000>;
+			smp-offset = <0xc08>;
+		};
+		
+	crg@14880000 {
+			compatible = "tri,crg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x14880000 0x1000>;
+			resume-offset = <0x38>;
+			reboot-offset = <0x0>;
+			clr-wdg-offset = <0x70>;
+			set-wdg-offset = <0x50>;
+			switch-wdg-offset = <0x64>;
+		};
+		
+	iomux@14900000 {
+			compatible = "tri,iomux";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x14900000 0x1000>;
+			jtag-sel-offset = <0x108>;
+		};
+	
+	arm_timer_clk: arm_timer_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>; // 1Ghz,div 4(cpu主频4分频)
+		};
+
+	local_timer@10180600 {
+		compatible = "arm,cortex-a9-twd-timer";
+		reg = <0x10180600 0x20>;
+		interrupts = <1 13 0xf04>;
+		clocks = <&arm_timer_clk>;
+	};
+	
+	timer0: timer@10104000 {
+			compatible = "arm,sp804";
+			reg = <0x10104000 0x1000>;
+			interrupts = <1 47 0x4>; //79
+			/* timer00 & timer01 */
+			clocks = <0x2>;
+		};
+	
+	clk_uart: 100000000{
+		compatible = "fixed-clock";
+		#clock-cells = <0x0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "clk_uart";
+		linux,phandle = <0x2>;
+		phandle = <0x2>;
+	};
+	
+	uart@0x1010e000 {
+		compatible = "snps,dw-apb-uart";
+		bus_id = "uart0";
+		reg = <0x1010e000 0x1000>;
+		clocks = <0x2>;
+		clock-names = "apb_pclk";
+		reg-shift = <0x2>;
+		interrupts = <0x0 0x2d 0x4>;
+		tty_name = "ttyAMA";
+	};
+
+	uart@0x1010f000 {
+		compatible = "snps,dw-apb-uart";
+		bus_id = "uart1";
+		reg = <0x1010f000 0x1000>;
+		clocks = <0x2>;
+		clock-names = "apb_pclk";
+		reg-shift = <0x2>;
+		interrupts = <0x0 0x2e 0x4>;
+		tty_name = "ttyS";
+	};
+	
+	L2: l2-cache {
+		compatible = "arm,pl310-cache";
+		reg = <0x7f000000 0x1000>;
+		cache-unified;
+		cache-level = <2>;
+	};
+	
+	pie{
+		compatible = "tri,pie";
+		dma-coherent;
+		interrupts = <0 88 4>, // 120
+			     <0 89 4>, // 121
+			     <0 90 4>, // 122
+			     <0 91 4>; // 123
+		phy-mode = "internal";
+		
+		mdio: mdio-bus {
+		compatible = "tri,tr6560-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		
+		phy1: ethernet-phy@1 {
+			reg = <1>;
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+
+		phy2: ethernet-phy@2 {
+			reg = <2>;
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+
+		phy3: ethernet-phy@3 {
+			reg = <3>;
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+
+		phy4: ethernet-phy@4 {
+			reg = <4>;
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+
+		phy5: ethernet-phy@5 {
+			reg = <5>;
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+
+		};
+		
+		halport0: halport{
+		compatible = "tri,tr6560-halport";
+	};
+
+	};
+
+	fmc@10a20000 {
+		compatible = "tri,fmc";
+		bus_id = "fmc";
+		reg = <0x10a20000 0x1000>,
+			<0x1c000000 0x100000>;
+		spi_cs = <0x1>;  
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			uboot{
+				label = "uboot";
+				reg = <0x000000000000 0x80000>;
+			};
+
+			kernelA{
+				label = "kernelA";
+				reg = <0x000000080000  0x800000>;
+			};
+
+			rootfsA{
+				label = "rootfsA";
+				reg = <0x000000880000  0x2000000>;
+				read-only;
+			};
+
+			firmwareA{
+				label = "firmwareA";
+				reg = <0x000000080000  0x2800000>;
+			};
+
+			kernelB{
+				label = "kernelB";
+				reg = <0x000002880000  0x800000>;
+			};
+
+			rootfsB{
+				label = "rootfsB";
+				reg = <0x000003080000  0x2000000>;
+				read-only;
+			};
+
+			firmwareB{
+				label = "firmwareB";
+				reg = <0x000002880000  0x2800000>;
+			};
+
+			rootfs_data{
+				label = "rootfs_data";
+				reg = <0x000005080000  0x2E00000>;
+			};
+
+			equip{
+				label = "equip";
+				reg = <0x000007E80000  0x80000>;
+			};
+
+			wlanrf{
+				label = "wlanrf";
+				reg = <0x000007F00000  0x80000>;
+			};
+
+			upgflag{
+				label = "upgflag";
+				reg = <0x000007F80000  0x80000>;
+			};
+		};
+	};
+	
+	pcie@0x10145000 {
+		compatible = "tri,pcie";
+		dma-coherent;
+		pcie_num   = <0x2>;
+		interrupts = <0 59 4>,   // 91
+			     <0 63 4>;   // 95
+		reg = <0x10160000 0x1000>,     // DBI
+			<0x10164000 0x1000>,
+			<0x10161000 0x3000>,   // APB
+			<0x10165000 0x3000>, 
+			<0x40000000 0x4000000>, // IORESOURCE_MEM, 64M
+			<0x58000000 0x4000000>,
+			<0x41000000 0x2000000>, // IORESOURCE_IO, 32M
+			<0x59000000 0x2000000>, 
+			<0x50000000 0x4000>,   // config space 16k
+			<0x68000000 0x4000>;
+		iatu0 = <0x0 0x4 0x80000000 0x50000000 0x0 0x57FFFFFF 0x0 0x0>,
+			<0x1 0x0 0x80000000 0x40000000 0x0 0x4FFFFFFF 0x40000000 0x0>;
+		iatu1 = <0x0 0x4 0x80000000 0x68000000 0x0 0x6FFFFFFF 0x0 0x0>,
+			<0x1 0x0 0x80000000 0x58000000 0x0 0x58FFFFFF 0x58000000 0x0>;
+	};
+
+	tvsensor{
+		compatible = "tri,tvsensor";
+		interrupts = <0 144 4>;  // 176
+	};
+	
+	gpio0: gpio@0x10106000{
+		compatible = "tri,gpio0";
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&gic>;
+		#interrupt-cells = <2>;
+		interrupts = <0 48 4>,   // 80 2组gpio，中断号统一映射
+			     <0 49 4>;   // 81
+		reg = <0x10106000 0x2000>; //2组gpio，io resource统一申请
+	};
+	
+	usb_phy@0x1016c000{
+		compatible = "tri,usb_phy";
+		reg = <0x1016c000 0x1000>;
+	};
+	
+	usb_ohci@0x10a50000{
+		reg = <0x10a50000 0x10000>;
+		compatible = "generic-ohci";
+		dma-coherent;
+		interrupts = <0 35 4>; //67
+	};
+
+	usb_ehci@0x10a40000{
+		reg = <0x10a40000 0x10000>;
+		compatible = "generic-ehci";
+		dma-coherent;
+		interrupts = <0 36 4>; //68
+	};
+
+	spi@0x10114000 {
+		compatible = "tri,spi";
+		reg = <0x10114000 0x1000>;
+		interrupts = <0 75 4>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	dmac@0x15200000 {
+		compatible = "tri,dmac";
+		reg = <0x15200000 0x1000>;
+		interrupts = <0 58 4>;
+		chan_num = <16>;
+	};
+};

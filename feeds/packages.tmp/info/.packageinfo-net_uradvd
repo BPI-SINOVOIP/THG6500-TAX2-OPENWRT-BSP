@@ -1,0 +1,22 @@
+Source-Makefile: feeds/packages/net/uradvd/Makefile
+
+Package: uradvd
+Version: 2021-09-14-9b0da60e27c67305d251b10163e388191d566d7a-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread 
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: A tiny radvd
+Maintainer: Moritz Warning <moritzwarning@web.de>
+Source: uradvd-2021-09-14-9b0da60e27c67305d251b10163e388191d566d7a.tar.xz
+License: BSD-2-Clause
+LicenseFiles: LICENSE
+Type: ipkg
+Description: 	 Advertise an IPv6 prefix/route via SLAAC.
+Moritz Warning <moritzwarning@web.de>
+@@
+
+

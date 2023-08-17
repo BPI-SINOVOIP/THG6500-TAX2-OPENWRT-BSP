@@ -1,0 +1,25 @@
+{
+	"admin/services/management": {
+		"title": "Management",
+		"order": 60,
+		"action": {
+			"type": "alias",
+			"path": "admin/services/management/tr-069"
+		},
+		"depends": {
+			"acl": [ "luci-app-easycwmp" ],
+		}
+	},
+	"admin/services/management/tr-069": {
+		"title": "TR-069",
+		"order": 1,
+		"action": {
+			"type": "cbi",
+			"path": "easycwmp",
+			"post": { "cbi.submit": true }
+		},
+		"depends": {
+			"acl": [ "luci-app-easycwmp" ]
+		}
+	}
+}

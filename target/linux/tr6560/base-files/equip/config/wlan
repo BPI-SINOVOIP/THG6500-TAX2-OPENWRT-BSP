@@ -1,0 +1,70 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/system.sh
+
+mode=""
+param=""
+action=""
+value=""
+path=""
+
+if [ "$3" = "set" ]; then
+    if [ $# -ne 4 ]; then
+        echo "count of setting wlan's param is $# error(must be 4)!"
+        exit 0
+    fi
+    mode=$1
+    param=$2
+    action=$3
+    value=$4
+elif [ "$3" = "get" ]; then
+    if [ $# -ne 3 ]; then
+        echo "count of getting wlan's param is $# error(must be 3)!"
+        exit 0
+    fi
+    mode=$1
+    param=$2
+    action=$3
+else
+    echo "param format error (./wlan 2.4G SSID/password get/set [$value])!"
+    exit 0
+fi
+
+if [ "$mode" != "2.4G" -a "$mode" != "5G" ]; then
+    echo "wlan mode:$mode error (only supports 2.4G and 5G)!"
+    exit 0
+fi
+if [ "$param" != "SSID" -a "$param" != "password" ]; then
+    echo "wlan param:$param error (only supports the configuration of SSID and password)!"
+    exit 0
+fi
+
+case "$action" in
+    set)
+        if [ "$param" = "SSID" ]; then
+            ssidlen=${#value}
+            if [ $ssidlen -eq 0 -o $ssidlen -gt 32 ]; then
+                echo "length of setting SSID is $ssidlen (${value}) error(length must be between 1 and 32)!"
+                exit 0
+            fi
+        elif [ "$param" = "password" ]; then
+            pwdlen=${#value}
+            if [ $pwdlen -lt 8 -o $pwdlen -gt 63 ]; then
+                echo "length of setting password is $pwdlen (${value}) error(length must be between 8 and 63)!"
+                exit 0
+            fi
+        fi
+        path="wlan${mode}_${param}"
+        nvram set ${path}=$value
+        nvram commit
+        echo "${path}=$value"
+        echo "PASSED: set $mode $param OK!"
+        ;;
+    get)
+        path="wlan${mode}_${param}"
+        nvram get ${path}
+        ;;
+    *)
+        ;;
+esac

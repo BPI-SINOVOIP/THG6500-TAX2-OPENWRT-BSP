@@ -1,0 +1,48 @@
+Source-Makefile: feeds/packages/net/miniupnpd/Makefile
+
+Package: miniupnpd-iptables
+Submenu: Firewall
+Version: 2.2.3-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcap-ng +libmnl +libuuid +IPV6:ip6tables +IPV6:libip6tc +iptables +libip4tc +libnetfilter-conntrack
+Conflicts: 
+Menu-Depends: 
+Provides: miniupnpd
+Build-Variant: iptables
+Section: net
+Category: Network
+Repository: base
+Title: Lightweight UPnP IGD, NAT-PMP & PCP daemon (iptables)
+Maintainer: 
+Source: miniupnpd-2.2.3.tar.gz
+License: BSD-3-Clause
+LicenseFiles: LICENSE
+Type: ipkg
+Description: Lightweight UPnP IGD, NAT-PMP & PCP daemon (iptables)
+https://miniupnp.tuxfamily.org/
+
+@@
+
+Package: miniupnpd-nftables
+Submenu: Firewall
+Version: 2.2.3-0
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +libcap-ng +libmnl +libuuid +libnftnl
+Conflicts: miniupnpd-iptables
+Menu-Depends: 
+Provides: miniupnpd
+Build-Variant: nftables
+Default-Variant: nftables
+Section: net
+Category: Network
+Repository: base
+Title: Lightweight UPnP IGD, NAT-PMP & PCP daemon (nftables)
+Maintainer: 
+Source: miniupnpd-2.2.3.tar.gz
+License: BSD-3-Clause
+LicenseFiles: LICENSE
+Type: ipkg
+Description: Lightweight UPnP IGD, NAT-PMP & PCP daemon (nftables)
+https://miniupnp.tuxfamily.org/
+
+@@
+
+

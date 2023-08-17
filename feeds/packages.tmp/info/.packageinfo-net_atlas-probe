@@ -1,0 +1,26 @@
+Source-Makefile: feeds/packages/net/atlas-probe/Makefile
+
+Package: atlas-probe
+Version: 2.4.1-1
+Depends: +libc +USE_GLIBC:librt +USE_GLIBC:libpthread +librt +libopenssl +openssh-client +sudo
+Conflicts: 
+Menu-Depends: 
+Provides: 
+Section: net
+Category: Network
+Repository: base
+Title: RIPE Atlas probe measurement
+Maintainer: Jan Pavlinec <jan.pavlinec1@gmail.com>
+Require-User: atlas=444:atlas=444
+Source: ripe-atlas-probe-busybox-2.4.1.tar.gz
+License: GPL-2.0-or-later
+LicenseFiles: LICENSE
+Type: ipkg
+Description:   RIPE Atlas is a global, open, distributed Internet measurement platform,
+  consisting of thousands of measurement devices that measure Internet
+  connectivity in real time.
+https://atlas.ripe.net/
+Jan Pavlinec <jan.pavlinec1@gmail.com>
+@@
+
+
