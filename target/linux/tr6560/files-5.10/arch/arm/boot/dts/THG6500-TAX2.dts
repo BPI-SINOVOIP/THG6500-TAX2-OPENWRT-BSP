@@ -65,7 +65,7 @@
 		wps {
 			label = "wps";
 			linux,code = <KEY_WPS_BUTTON>;
-			gpios = <&gpio0 18 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
 		};
 	};
 
@@ -77,7 +77,7 @@
 		
 		tr5220;
 		pcie2_0;
-		pcie_rstn    = <16>;  //初始配置拉高；低电平复位
+		pcie_rstn    = <20>;  //初始配置拉高；低电平复位
 		vol_en       = <9>;  //高电平有效，高电平给wifi上电
 		wl_en        = <10>; //高电平有效，打开高电平wifi
 		pmu_pwron    = <11>; //初始配置拉高，低电平WIFI芯片关电
