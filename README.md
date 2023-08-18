@@ -1,4 +1,4 @@
-# THG6500-TAX2-OPENWRT-BSP
+# THG6500-TAX2-OPENWRT-BSP, compile hte BSP on ubuntu-22.04 host computer.
 
 ![OpenWrt logo](include/logo.png)
 
