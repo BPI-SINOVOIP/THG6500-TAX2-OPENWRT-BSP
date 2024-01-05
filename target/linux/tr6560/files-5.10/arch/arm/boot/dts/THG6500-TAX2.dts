@@ -39,11 +39,11 @@
 			default-state = "off";
 		};
 
-		power-red {
+		/*power-red {
 			label = "tri:red:power";
 			gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
 			default-state = "keep";
-		};
+		};*/
 
 		power-green {
 			label = "tri:green:power";
