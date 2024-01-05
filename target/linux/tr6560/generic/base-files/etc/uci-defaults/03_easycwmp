@@ -1,0 +1,35 @@
+[ ! -e /etc/config/easycwmp ] && exit 0
+
+. /lib/functions/system.sh
+
+set_default_config()
+{
+	local sn=''
+	local mac=`nvram get mac`
+
+	# 如果没有配置mac，则不启动easycwmp
+	if [ -z "$mac" ]; then
+		uci -q set easycwmp.@local[0].enable='0'
+		exit 0 #必须返回0，否则本文件不会被删除
+	fi
+
+	#SerialNumber
+	sn=`nvram get sn`
+	if [ -z "$sn" ]; then #如果没有配置sn，则用mac生成
+		sn=${mac//:/}
+	fi
+	uci -q set easycwmp.@device[0].serial_number="$sn"
+}
+
+
+# 必须先根据device设置个性参数，再设置通用参数，否则serial_number无法生成
+main()
+{
+    local device=$(board_name)
+
+    set_default_config $device
+}
+
+
+
+main

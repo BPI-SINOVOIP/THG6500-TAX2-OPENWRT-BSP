@@ -1,0 +1,13 @@
+diff -aur old/drivers/net/ppp/ppp_generic.c new/drivers/net/ppp/ppp_generic.c
+--- old/drivers/net/ppp/ppp_generic.c	2023-08-17 17:24:13.096545890 +0800
++++ new/drivers/net/ppp/ppp_generic.c	2023-08-17 17:23:22.580122228 +0800
+@@ -3454,7 +3454,8 @@
+ 	struct pppox_sock *po = NULL;
+ 	struct ppp *ppp = NULL;
+ 
+-	if ((ppp_dev->flags & IFF_POINTOPOINT) == 0)
++	/* 判断 type == ARPHRD_NONE 退出； 规避 tun设备 判断时出现crash问题。 */
++	if ((ppp_dev->flags & IFF_POINTOPOINT) == 0 || ppp_dev->type == ARPHRD_NONE || ppp_dev->type == ARPHRD_TUNNEL)
+ 		return NULL;
+ 
+ 	if ((ppp = netdev_priv(ppp_dev)) == NULL ||

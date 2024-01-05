@@ -3,11 +3,17 @@
 
 board_config_update
 
-ucidef_set_led_wlan "2g" "2g" "tri:green:wlan2g" "none"
-ucidef_set_led_wlan "5g" "5g" "tri:green:wlan5g" "none"
-ucidef_set_led_wlan "normal" "normal" "tri:green:power" "default-on"
-ucidef_set_led_wlan "abnormal" "abnormal" "tri:red:power" "none"
-ucidef_set_led_wlan "wps" "wps" "tri:green:wps" "none"
+board=$(board_name)
+case $board in
+	*)
+	_ucidef_set_led_trigger "2g" "2g" "tri:green:wlan2g" 'custom'
+	_ucidef_set_led_trigger "5g" "5g" "tri:green:wlan5g" 'custom'
+	_ucidef_set_led_trigger "normal" "normal" "tri:green:power" "default-on"
+	_ucidef_set_led_trigger "abnormal" "abnormal" "tri:red:power" 'custom'
+	_ucidef_set_led_trigger "wps" "wps" "tri:green:wps" 'custom'
+	_ucidef_set_led_trigger "mesh" "mesh" "tri:green:wps" 'custom'
+	;;
+esac
 
 board_config_flush
 

@@ -6,5 +6,5 @@
 		}
 	},
 	"publish": [ "hostapd", "hostapd.*", "wpa_supplicant", "wpa_supplicant.*" ],
-	"send": [ "bss.*", "wps_credentials", "hostapd.*"]
+	"send": [ "bss.*", "wps_credentials" ]
 }

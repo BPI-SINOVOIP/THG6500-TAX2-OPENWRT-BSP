@@ -60,17 +60,20 @@ setup_interface () {
 		proto_add_ipv6_prefix "$prefix"
 	done
 
-	# Merge addresses
-	for entry in $RA_ADDRESSES; do
-		local duplicate=0
-		local addr="${entry%%/*}"
-		for dentry in $ADDRESSES; do
-			local daddr="${dentry%%/*}"
-			[ "$addr" = "$daddr" ] && duplicate=1
+	config_load network
+	config_get reqaddress wan6 reqaddress
+	if [ "$reqaddress" = "none" ]; then
+		# Merge addresses
+		for entry in $RA_ADDRESSES; do
+			local duplicate=0
+			local addr="${entry%%/*}"
+			for dentry in $ADDRESSES; do
+				local daddr="${dentry%%/*}"
+				[ "$addr" = "$daddr" ] && duplicate=1
+			done
+			[ "$duplicate" = "0" ] && ADDRESSES="$ADDRESSES $entry"
 		done
-		[ "$duplicate" = "0" ] && ADDRESSES="$ADDRESSES $entry"
-	done
-
+	fi
 	for entry in $ADDRESSES; do
 		local addr="${entry%%/*}"
 		entry="${entry#*/}"

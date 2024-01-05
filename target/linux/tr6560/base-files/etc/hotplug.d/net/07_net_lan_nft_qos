@@ -1,0 +1,18 @@
+#!/bin/sh
+
+
+
+do_sta()
+{
+    logger -t net_lan_nft_qos -p notice "ACTION=$ACTION" "INTERFACE=$INTERFACE" "SEQNUM=$SEQNUM"
+	sleep 3
+    eval "/etc/init.d/nft-qos start 2>/dev/null"
+}
+
+case "$ACTION" in
+    "up" | "down")
+        do_sta
+    ;;
+	*)
+	;;
+esac

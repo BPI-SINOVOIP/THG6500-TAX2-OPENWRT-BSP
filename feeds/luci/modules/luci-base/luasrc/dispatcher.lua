@@ -410,7 +410,7 @@ local function tree_to_json(node, json)
 				end
 			end
 
-			if type(subnode.neq) == "table" then
+			if type(subnode.neq_depends) == "table" then
 				for k, v in pairs(subnode.neq_depends) do
 					spec.depends = spec.depends or {}
 					spec.depends.neq = spec.depends.neq or {}
@@ -650,6 +650,9 @@ local function session_setup(user, pass)
 		})
 		nixio.syslog("info", tostring("luci: accepted login on /%s for %s from %s\n"
 			%{ rp, user or "?", http.getenv("REMOTE_ADDR") or "?" }))
+
+		uci:set("rpcd", "@rpcd[0]", "user", user or "?")
+		--uci:commit()
 
 		return session_retrieve(login.ubus_rpc_session)
 	end

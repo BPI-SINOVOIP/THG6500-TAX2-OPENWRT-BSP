@@ -1,0 +1,14 @@
+diff -Nur old/net/core/skbuff.c new/net/core/skbuff.c
+--- old/net/core/skbuff.c	2023-09-01 17:36:03.803407051 +0800
++++ new/net/core/skbuff.c	2023-09-01 17:36:46.047761334 +0800
+@@ -4404,9 +4404,8 @@
+ 						NULL);
+ #ifdef CONFIG_RTOS_SKB_EXTEND
+ 	rtos_skb_extend_init();
+-#else
+-	skb_extensions_init();
+ #endif
++	skb_extensions_init();
+ }
+ 
+ static int

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+[ "$DEVICENAME" = "wlan0-ap" -o "$DEVICENAME" = "wlan1-ap" ] && {
+	phy="phy$(echo $DEVICENAME | sed 's/[^0-9]//g')"
+	wifi5=`uci get wifi.wifi5.enable`
+	[ add = "$ACTION" ] && {
+		[ "$wifi5" = "1" ] && wifi5.sh enable $phy
+	} || {
+		wifi5.sh disable $phy
+	}
+}

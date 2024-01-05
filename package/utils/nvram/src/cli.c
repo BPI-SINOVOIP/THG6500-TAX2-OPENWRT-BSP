@@ -24,7 +24,7 @@
 
 #include "nvram.h"
 
-
+#ifndef NAND
 static nvram_handle_t * nvram_open_rdonly(void)
 {
 	char *file = nvram_find_staging();
@@ -41,6 +41,7 @@ static nvram_handle_t * nvram_open_rdonly(void)
 
 	return NULL;
 }
+#endif
 
 static nvram_handle_t * nvram_open_staging(void)
 {
@@ -170,8 +171,11 @@ int main( int argc, const char *argv[] )
 		!strcmp(argv[1], "commit") )
 		write = 1;
 
-
+#ifdef NAND
+	nvram = nvram_open_staging();
+#else
 	nvram = write ? nvram_open_staging() : nvram_open_rdonly();
+#endif
 
 	if( nvram != NULL && argc > 1 )
 	{

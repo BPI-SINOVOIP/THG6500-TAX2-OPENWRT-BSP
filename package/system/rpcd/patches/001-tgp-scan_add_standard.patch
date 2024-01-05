@@ -1,0 +1,38 @@
+diff -uprN a/iwinfo.c b/iwinfo.c
+--- a/iwinfo.c	2023-08-16 13:08:00.887649390 +0800
++++ b/iwinfo.c	2023-08-16 20:07:48.761367041 +0800
+@@ -220,6 +220,25 @@ rpc_iwinfo_add_encryption(const char *na
+ }
+ 
+ static void
++rpc_iwinfo_add_hwmodes(const char *name, uint32_t hw)
++{
++	void *c;
++	size_t i;
++	const char *v;
++
++	c = blobmsg_open_array(&buf, name);
++
++	for (i = 0; i < IWINFO_80211_COUNT; i++)
++		if (hw & 1 << i)
++		{
++			v = IWINFO_80211_NAMES[i];
++			blobmsg_add_string(&buf, NULL, v);
++		}
++
++	blobmsg_close_array(&buf, c);
++}
++
++static void
+ rpc_iwinfo_call_encryption(const char *name)
+ {
+ 	struct iwinfo_crypto_entry crypto = { 0 };
+@@ -423,6 +442,8 @@ rpc_iwinfo_scan(struct ubus_context *ctx
+ 
+ 			rpc_iwinfo_add_encryption("encryption", &e->crypto);
+ 
++			rpc_iwinfo_add_hwmodes("hwmodes", e->hw);
++
+ 			blobmsg_close_table(&buf, d);
+ 		}
+ 	}

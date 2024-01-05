@@ -123,6 +123,7 @@ object Device {   object WiFi {   object DataElements {
                 object Configuration {
                     bool BandSteeringEnabled = false;
                     bool ClientRoamingEnabled = false;
+		    bool Client_11kRoaming = false;		    
 
                     uint32 SteeringCurrentBonus = 0 {
                         on action validate call check_range [0, 10000];
@@ -243,7 +244,7 @@ object Device {   object WiFi {   object DataElements {
 
 %populate {
     on event "dm:object-changed" call event_configuration_changed
-        filter 'object matches "CONTROLLER_ROOT_DM_literal\.Configuration\."';
+        filter 'object matches "Device\.WiFi\.DataElements\.Configuration\."';
 }
 
 include "device.odl";

@@ -76,7 +76,7 @@ drv_mac80211_init_iface_config() {
 
 	config_add_string 'macaddr:macaddr' ifname
 
-	config_add_boolean wds powersave enable
+	config_add_boolean wds powersave enable proxy
 	config_add_string wds_bridge
 	config_add_int maxassoc
 	config_add_int max_listen_int
@@ -132,9 +132,7 @@ mac80211_hostapd_setup_base() {
 	json_select config
 
 	[ "$auto_channel" -gt 0 ] && {
-		[ "$band" = "2g" ] && channel=1 || {
-			[ "$htmode" = "VHT160" -o "$htmode" = "HE160" ] && channel=36 || channel=149
-		}
+		[ "$band" = "2g" ] && channel=1 || channel=36
 	}
 
 	[ "$auto_channel" -gt 0 ] && json_get_vars acs_exclude_dfs
@@ -652,29 +650,35 @@ mac80211_iw_interface_add() {
 mac80211_prepare_vif() {
 	json_select config
 
-	json_get_vars ifname mode ssid wds powersave macaddr enable wpa_psk_file vlan_file
+	json_get_vars ifname mode ssid wds powersave macaddr enable wpa_psk_file vlan_file proxy
 
-	[ -n "$ifname" ] || ifname="wlan${phy#phy}${if_idx:+-$if_idx}"
-	if_idx=$((${if_idx:-0} + 1))
 	eval "idx_$mode=\${idx_$mode:-0}"
 	eval "idx_$mode=$((idx_${mode} + 1))"
-	radio=`uci show | grep wireless | grep "device='radio${phy#phy}'"`
-	idx=0
-	for radio_seq in $radio; do
-		section=`echo "$radio_seq" | awk -F '.' '{print $2}'`
-		section_mode=`uci get wireless.${section}.mode`
-		if [ "$section_mode" == "$mode" ]; then
-			idx=$((${idx} + 1))
-			if [ $idx -eq $((idx_$mode)) ]; then
-				uci -q -P /var/state revert wireless.${section}.ifname
-				uci -q -P /var/state set wireless.${section}.ifname="${ifname}"
-				break
+
+	[ -n "$ifname" ] || {
+		ifname="wlan${phy#phy}${if_idx:+-$if_idx}"
+		radio=`uci show | grep wireless | grep "device='radio${phy#phy}'"`
+		idx=0
+		for radio_seq in $radio; do
+			section=`echo "$radio_seq" | awk -F '.' '{print $2}'`
+			section_mode=`uci get wireless.${section}.mode`
+			section_disable=`uci get wireless.${section}.disabled`
+			if [ "$section_mode" == "$mode" -a "${section_disable}" != "1" ]; then
+				idx=$((${idx} + 1))
+				if [ $idx -eq $((idx_$mode)) ]; then
+					uci -q -P /var/state revert wireless.${section}.ifname
+					uci -q -P /var/state set wireless.${section}.ifname="${ifname}"
+					break
+				fi
 			fi
-		fi
-	done
+		done
+	}
+
+	if_idx=$((${if_idx:-0} + 1))
 
 	set_default wds 0
 	set_default powersave 0
+	set_default proxy 0
 
 	json_select ..
 
@@ -693,6 +697,8 @@ mac80211_prepare_vif() {
 	}
 
 	json_select config
+
+	[ "$phy" = "phy0" ] && band="2g" || band="5g"
 
 	# It is far easier to delete and create the desired interface
 	case "$mode" in
@@ -716,11 +722,7 @@ mac80211_prepare_vif() {
 				hostapd_ctrl="${hostapd_ctrl:-/var/run/hostapd/$ifname}"
 			}
 
-			if [ "$phy" = "phy0" ]; then
-				create_ifname.sh "$ifname" "2g"
-			else
-				create_ifname.sh "$ifname" "5g"
-			fi
+			create_ifname.sh "$ifname" "ap" "$band"
 			[ "$auto_channel" -gt 0 ] && extpriv.sh "$ifname acs sw 1" || extpriv.sh "$ifname acs sw 0"
 		;;
 		mesh)
@@ -733,8 +735,10 @@ mac80211_prepare_vif() {
 			local wdsflag=
 			[ "$enable" = 0 ] || staidx="$(($staidx + 1))"
 			[ "$wds" -gt 0 ] && wdsflag="4addr on"
-			mac80211_iw_interface_add "$phy" "$ifname" managed "$wdsflag" || return
-			if [ "$wds" -gt 0 ]; then
+			[ "$proxy" -gt 0 ] && create_ifname.sh "$ifname" "psta" "$band" || {
+				mac80211_iw_interface_add "$phy" "$ifname" managed "$wdsflag" || return
+			}
+			if [ "$wds" -gt 0 -o "$proxy" -gt 0 ]; then
 				iw "$ifname" set 4addr on
 			else
 				iw "$ifname" set 4addr off

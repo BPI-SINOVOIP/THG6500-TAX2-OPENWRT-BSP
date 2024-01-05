@@ -1,8 +1,13 @@
 #!/bin/sh
 . /lib/functions.sh
 
-ROOTFS_DATA_DEV=$(find_mtd_part rootfs_data)
-echo "PASSED: set default ok, the device will reboot" > /dev/pts/0
-dd if=/dev/zero of="$ROOTFS_DATA_DEV" bs=512k count=1
+ROOTFS_DATA_DEV=$(find_char_mtd_part rootfs_data)
+
+echo "PASSED: set default ok, the device will reboot" > /dev/console
+[ -c /dev/pts/0 ] &&{
+	echo "PASSED: set default ok, the device will reboot" > /dev/pts/0
+}
+
+mtd erase ${ROOTFS_DATA_DEV}
 sleep 1
 reboot

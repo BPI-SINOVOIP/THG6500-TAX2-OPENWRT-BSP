@@ -11,3 +11,4 @@ tri_kcfe_res
 tri_pcie
 tri_kcfe_mc
 tri_cpufreq
+tri_kphy_ext

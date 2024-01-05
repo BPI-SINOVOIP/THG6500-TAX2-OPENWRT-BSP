@@ -1,0 +1,21 @@
+#!/bin/sh
+
+[ "$ACTION" = "unassoc_sta" ] || exit 0
+
+logger -t hostapd_unassoc_sta -p notice "ACTION=$ACTION" "MAC=$MAC" "CHANNEL=$CHANNEL" "SIGNAL=$SIGNAL"
+
+do_unassoc_sta()
+{
+    mac_addr=`echo $1 | sed 's/://g'`
+
+    uci -P /var/state revert wifi.${mac_addr}
+    uci -P /var/state/ set wifi.${mac_addr}="unassoc_sta"
+    uci -P /var/state/ set wifi.${mac_addr}.mac="$1"
+    uci -P /var/state/ set wifi.${mac_addr}.channel="$2"
+    uci -P /var/state/ set wifi.${mac_addr}.rssi="$3"
+    uci -P /var/state/ commit wifi
+}
+
+
+do_unassoc_sta $MAC $CHANNEL $SIGNAL
+

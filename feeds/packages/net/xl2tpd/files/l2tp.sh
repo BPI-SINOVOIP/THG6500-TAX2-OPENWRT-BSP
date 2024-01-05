@@ -88,7 +88,7 @@ $mtu
 $pppd_options
 EOF
 
-	xl2tpd-control add-lac l2tp-${interface} pppoptfile=${optfile} lns=${server} || {
+	xl2tpd-control add-lac l2tp-${interface} pppoptfile=${optfile} lns=${server} redial=yes "redial timeout"=5 "max redials"=200 || {
 		echo "xl2tpd-control: Add l2tp-$interface failed" >&2
 		proto_setup_failed "$interface"
 		exit 1

@@ -140,7 +140,7 @@ stop_function() {
         /opt/prplmesh/scripts/prplmesh_utils.sh stop
         # since prplmesh changes the wifi runtime configuration,
         # restart wifi when stopping prplmesh
-        wlan_reset
+        #wlan_reset
 }
 
 enable_function() {

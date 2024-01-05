@@ -8,7 +8,10 @@ for iRadio_node in $string; do
         uci set wireless.$iRadio_node.ifname='wlan0'
     elif [ "$ifname" = "wlan1-ap" ]; then
         uci set wireless.$iRadio_node.ifname='wlan1'
+    else
+        uci set wireless.$iRadio_node.disabled='1'
     fi
 done
-wifi up
 uci commit
+wifi up
+

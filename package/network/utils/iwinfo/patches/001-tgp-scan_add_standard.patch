@@ -1,0 +1,88 @@
+diff -uprN a/include/iwinfo/utils.h b/include/iwinfo/utils.h
+--- a/include/iwinfo/utils.h	2023-08-16 13:07:05.163651098 +0800
++++ b/include/iwinfo/utils.h	2023-08-16 14:31:06.003496567 +0800
+@@ -67,6 +67,8 @@ int iwinfo_hardware_id_from_mtd(struct i
+ void iwinfo_parse_rsn(struct iwinfo_crypto_entry *c, uint8_t *data, uint8_t len,
+ 					  uint16_t defcipher, uint8_t defauth);
+ 
++void iwinfo_parse_supprates(uint8_t *data, uint8_t len, struct iwinfo_scanlist_entry *e);
++
+ struct uci_section *iwinfo_uci_get_radio(const char *name, const char *type);
+ void iwinfo_uci_free(void);
+ 
+diff -uprN a/include/iwinfo.h b/include/iwinfo.h
+--- a/include/iwinfo.h	2023-08-16 13:07:05.163651098 +0800
++++ b/include/iwinfo.h	2023-08-16 14:31:06.003496567 +0800
+@@ -226,6 +226,7 @@ struct iwinfo_scanlist_entry {
+ 	struct iwinfo_crypto_entry crypto;
+ 	struct iwinfo_scanlist_ht_chan_entry ht_chan_info;
+ 	struct iwinfo_scanlist_vht_chan_entry vht_chan_info;
++	uint32_t hw;
+ };
+ 
+ struct iwinfo_country_entry {
+diff -uprN a/iwinfo_nl80211.c b/iwinfo_nl80211.c
+--- a/iwinfo_nl80211.c	2023-08-16 13:07:05.163651098 +0800
++++ b/iwinfo_nl80211.c	2023-08-16 16:31:23.354575602 +0800
+@@ -2553,6 +2553,7 @@ static void nl80211_get_scanlist_ie(stru
+ 				e->ht_chan_info.primary_chan = ie[2];
+ 				e->ht_chan_info.secondary_chan_off = ie[3] & 0x3;
+ 				e->ht_chan_info.chan_width = (ie[4] & 0x4)>>2;
++				e->hw |= IWINFO_80211_N;
+ 			}
+ 			break;
+ 		case 192: /* VHT operation */
+@@ -2560,8 +2561,22 @@ static void nl80211_get_scanlist_ie(stru
+ 				e->vht_chan_info.chan_width = ie[2];
+ 				e->vht_chan_info.center_chan_1 = ie[3];
+ 				e->vht_chan_info.center_chan_2 = ie[4];
++				if (e->channel >= 30)
++					e->hw |= IWINFO_80211_AC;
+ 			}
+ 			break;
++		case 255: /* EXTENISON */
++			if (ie[2] == 35 || ie[2] == 36) {
++				e->hw |= IWINFO_80211_AX;
++			}
++			break;
++		case 1: /* SUPPORTED RATES */
++			iwinfo_parse_supprates(ie + 2, ie[1], e);
++			break;
++		case 50: /* EXTENDED SUPPORTED RATES */
++			if (e->channel <= 14)
++				e->hw |= IWINFO_80211_G;
++			break;
+ 		}
+ 
+ 		ielen -= ie[1] + 2;
+diff -uprN a/iwinfo_utils.c b/iwinfo_utils.c
+--- a/iwinfo_utils.c	2023-08-16 13:07:05.163651098 +0800
++++ b/iwinfo_utils.c	2023-08-16 15:35:04.226441694 +0800
+@@ -590,6 +590,27 @@ void iwinfo_parse_rsn(struct iwinfo_cryp
+ 	len -= 2 + (count * 4);
+ }
+ 
++void iwinfo_parse_supprates(uint8_t *data, uint8_t len, struct iwinfo_scanlist_entry *e)
++{
++	int i;
++	uint8_t rate_mbs_fp_8_1;
++	
++	for (i = 0; i < len; i++)
++	{
++		rate_mbs_fp_8_1 = data[i] & 0x7f;
++		if (rate_mbs_fp_8_1 / 2 == 11)
++		{
++			if (e->channel <= 14)
++				e->hw |= IWINFO_80211_B;
++		}
++		else if (rate_mbs_fp_8_1 / 2 == 54)
++		{
++			if (e->channel >= 30)
++				e->hw |= IWINFO_80211_A;
++		}
++	}
++}
++
+ struct uci_section *iwinfo_uci_get_radio(const char *name, const char *type)
+ {
+ 	struct uci_ptr ptr = {

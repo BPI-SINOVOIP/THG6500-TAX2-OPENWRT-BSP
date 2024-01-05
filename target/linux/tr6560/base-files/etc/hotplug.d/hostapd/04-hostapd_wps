@@ -1,0 +1,9 @@
+#!/bin/sh
+
+[ "$ACTION" = "wps_status" ] || exit 0
+
+logger -t hostapd_wps -p notice "ACTION=$ACTION" "PHY=$PHY" "WPS_STATUS=$WPS_STATUS"
+
+# 配置wps状态
+uci -q -P /var/state revert wireless._phy${PHY}.wps_status
+uci -q -P /var/state set wireless._phy${PHY}.wps_status="$WPS_STATUS"

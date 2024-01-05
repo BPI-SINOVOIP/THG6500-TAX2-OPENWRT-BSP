@@ -29,7 +29,7 @@
 
 		wlan5g {
 			label = "tri:green:wlan5g";
-			gpios = <&gpio0 31 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio0 20 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
@@ -42,7 +42,7 @@
 		power-red {
 			label = "tri:red:power";
 			gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
-			default-state = "on";
+			default-state = "keep";
 		};
 
 		power-green {
@@ -81,8 +81,18 @@
 		reset_pcie1 = <9>;
 
 		rgmii;               // rgmii模块属性，涉及GPIO复用配置，不使用请屏蔽
-		extphy;              // 带rgmii时的外置phy属性，涉及GPIO复用配置，不使用请屏蔽
+        extphy;              // 带rgmii时的外置phy属性，涉及GPIO复用配置，不使用请屏蔽
+        tx_delay     = <4>;  //rgmill tx_delay 0.2ns步进
+        rx_delay     = <0>; //rgmill rx_delay 0.2ns步进
+        extphy_rstn  = <25>;  //外置phy reset 引脚
+
+        i2c;                // TR6560 i2c 只有一组GPIO24，GPIO25
+        i2c_enable   = <0>; // 等于1，使能iic 模块,等于0 不使能i2c 模块
+        addr_mode    = <0x1>; //0.7bit地址长度  1:10bit地址长度
+        baud_rate    = <0x1>; // 0:100k 1:400k 2:3.4M
+		
 		jtag_sel;            //wifi芯片操作gpio管脚和jtag复用，jtag优先级更高
+
 	};
 };
 

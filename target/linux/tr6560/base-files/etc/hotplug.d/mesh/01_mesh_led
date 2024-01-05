@@ -1,16 +1,53 @@
 #!/bin/sh
+. /usr/share/libubox/jshn.sh
 
 logger -t mesh_led -p notice "ACTION=$ACTION"
 
+mesh_led=`ubus call uci get '{"config":"system","section":"led_mesh","option":"sysfs"}' | jsonfilter -e "@.value"`
+
+linkup()
+{
+    json_init
+    json_add_object "leds"
+    json_add_int "$mesh_led" 255
+    json_close_object
+    json_add_int "on" 0
+    ubus call led set "$(json_dump)"
+}
+
+linkdown()
+{
+    json_init
+    json_add_object "leds"
+    json_add_int "$mesh_led" 0
+    json_close_object
+    ubus call led set "$(json_dump)"
+}
+
+linking()
+{
+    json_init
+    json_add_object "leds"
+    json_add_array "$mesh_led"
+    json_add_int "" 0
+    json_add_int "" 255
+    json_close_array
+    json_close_object
+    json_add_int "on" 150
+    json_add_int "off" 150
+    json_add_int "blink" 120000
+    ubus call led set "$(json_dump)"
+}
+
 case "$ACTION" in
     "linkup")
-        ubus call led set '{ "leds": { "tri:green:wps": 255 }, "on": 0 }'
+        linkup
     ;;
     "linkdown")
-        ubus call led set '{ "leds": { "tri:green:wps": 0 } }'
+        linkdown
     ;;
     "linking")
-        ubus call led set '{ "leds": { "tri:green:wps": [0, 255] }, "on":250, "off":250, "blink":1 }'
+        linking
     ;;
 esac
 

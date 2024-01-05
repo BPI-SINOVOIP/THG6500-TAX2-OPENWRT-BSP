@@ -330,6 +330,14 @@ find_mtd_part() {
 	echo "${INDEX:+$PREFIX$INDEX}"
 }
 
+find_char_mtd_part() {
+	local INDEX=$(find_mtd_index "$1")
+	local PREFIX=/dev/mtd
+
+	[ -d /dev/mtd ] && PREFIX=/dev/mtd/
+	echo "${INDEX:+$PREFIX$INDEX}"
+}
+
 find_mmc_part() {
 	local DEVNAME PARTNAME ROOTDEV
 

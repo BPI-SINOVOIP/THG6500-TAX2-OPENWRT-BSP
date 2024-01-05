@@ -166,46 +166,22 @@ detect_mac80211() {
 		else
 			dev_id="set wireless.radio${devidx}.macaddr=$(cat /sys/class/ieee80211/${dev}/macaddress)"
 		fi
-		
-		# get the SSID and password for Wlan when restoring to factory settings
-		ssid=""
-		passwd=""
-		encryption=""
-		if [ $devidx -eq 0 ]; then
-			ssid=$(nvram get wlan2.4G_SSID)
-			passwd=$(nvram get wlan2.4G_password)
-		else
-			ssid=$(nvram get wlan5G_SSID)
-			passwd=$(nvram get wlan5G_password)
-		fi
-		if [ -z "$ssid" ]; then
-			ssid=OpenWrt_${mode_band}
-		fi
-		if [ -z "$passwd" ]; then
-			encryption=none
-		else
-			encryption=psk-mixed
-		fi
-		# end 
 
 		uci -q batch <<-EOF
 			set wireless.radio${devidx}=wifi-device
 			set wireless.radio${devidx}.type=mac80211
 			${dev_id}
-			set wireless.radio${devidx}.channel=auto
+			set wireless.radio${devidx}.channel=${channel}
 			set wireless.radio${devidx}.band=${mode_band}
 			set wireless.radio${devidx}.htmode=$htmode
-			set wireless.radio${devidx}.disabled=0
-			set wireless.radio${devidx}.country=CN
+			set wireless.radio${devidx}.disabled=1
 
 			set wireless.default_radio${devidx}=wifi-iface
 			set wireless.default_radio${devidx}.device=radio${devidx}
 			set wireless.default_radio${devidx}.network=lan
 			set wireless.default_radio${devidx}.mode=ap
-			set wireless.default_radio${devidx}.ifname='wlan${devidx}-ap'
-			set wireless.default_radio${devidx}.ssid=${ssid}
-			set wireless.default_radio${devidx}.encryption=${encryption}
-			set wireless.default_radio${devidx}.key=${passwd}
+			set wireless.default_radio${devidx}.ssid=OpenWrt
+			set wireless.default_radio${devidx}.encryption=none
 EOF
 		uci -q commit wireless
 

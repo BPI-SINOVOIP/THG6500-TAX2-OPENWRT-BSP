@@ -2,32 +2,27 @@ REQUIRE_IMAGE_METADATA=1
 CI_UBIPART="rootfs_data"
 ROOTFS_DATA_DEV=$(find_mtd_part $CI_UBIPART)
 
-find_char_mtd_part() {
-	local INDEX=$(find_mtd_index "$1")
-	local PREFIX=/dev/mtd
-
-	[ -d /dev/mtd ] && PREFIX=/dev/mtd/
-	echo "${INDEX:+$PREFIX$INDEX}"
-}
-
 platform_do_upgrade() {
 	local flag="$(cat /proc/mtd | grep kernelA | wc -l)"
 	UPG_DEV_CHAR=$(find_char_mtd_part upgflag)
-	UPG_DEV=$(find_mtd_part upgflag)
 	if [ "$flag" = "0" ]; then
 		PART_NAME=firmwareB
 		FIRMWARE_DEV=$(find_char_mtd_part ${PART_NAME})
 		mtd erase ${FIRMWARE_DEV}
 		default_do_upgrade "$1"
 		mtd erase ${UPG_DEV_CHAR}
-		echo B > ${UPG_DEV}
+		echo B > /tmp/upgflag.tmp
+		dd if=/tmp/upgflag.tmp of=/tmp/upgflag bs=1 count=1
+		mtd -f write /tmp/upgflag ${UPG_DEV_CHAR}
 	elif [ "$flag" = "1" ]; then
 		PART_NAME=firmwareA
 		FIRMWARE_DEV=$(find_char_mtd_part ${PART_NAME})
 		mtd erase ${FIRMWARE_DEV}
 		default_do_upgrade "$1"
 		mtd erase ${UPG_DEV_CHAR}
-		echo A > ${UPG_DEV}
+		echo A > /tmp/upgflag.tmp
+		dd if=/tmp/upgflag.tmp of=/tmp/upgflag bs=1 count=1
+		mtd -f write /tmp/upgflag ${UPG_DEV_CHAR}
 	else
 		echo "dual-firmware startup error"
 		exit 1

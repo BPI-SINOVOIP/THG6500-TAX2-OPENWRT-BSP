@@ -1,0 +1,52 @@
+#!/bin/sh /etc/rc.common
+
+START=19
+USE_PROCD=1
+
+bridgeTableName='fw4br'
+
+
+
+rule_cb(){
+    local src_mac=''
+    local device=''
+
+    config_get src_mac "$1" src_mac
+    config_get device "$1" device
+
+
+    [ -n "$src_mac" ]  &&  nft add rule bridge $bridgeTableName reject_to_wan ether saddr $src_mac counter drop
+    [ -n "$device" ] && nft add rule bridge $bridgeTableName reject_to_wan iifname $device counter drop
+}
+
+
+
+start_service() {
+    config_load firewall4br
+    config_foreach rule_cb rule
+}
+
+stop_service() {
+    local chainList='reject_to_wan'
+    local chain=''
+
+    for chain in $chainList; do
+        nft flush chain bridge $bridgeTableName $chain
+    done
+}
+
+boot()
+{
+    nft add table bridge $bridgeTableName
+    nft add chain bridge $bridgeTableName prerouting {type filter hook prerouting priority filter \;}
+    nft add chain bridge $bridgeTableName input {type filter hook input priority filter \;}
+    nft add chain bridge $bridgeTableName forward {type filter hook forward priority filter \;}
+    nft add chain bridge $bridgeTableName output {type filter hook output priority filter \;}
+    nft add chain bridge $bridgeTableName postrouting {type filter hook postrouting priority filter \;}
+
+    nft add chain bridge $bridgeTableName reject_to_wan
+    nft add rule bridge $bridgeTableName forward jump reject_to_wan
+
+    start
+}
+

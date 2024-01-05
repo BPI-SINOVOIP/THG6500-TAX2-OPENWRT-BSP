@@ -8,6 +8,8 @@ if [ "$1" = "start" ]; then
     # move rc.button to rc.button.tmp
     mv /etc/rc.button /etc/rc.button.tmp
     cp -rf /equip/test/rc.button /etc/
+    sync
+    sleep 3
     echo "Please press a button to enter the test!!!"
 elif [ "$1" = "end" ]; then
     if [ ! -d /etc/rc.button.tmp ]; then
@@ -17,6 +19,8 @@ elif [ "$1" = "end" ]; then
     # move rc.button.tmp to rc.button
     rm -rf /etc/rc.button
     mv /etc/rc.button.tmp /etc/rc.button
+    sync
+    sleep 3
     echo "End button test!!!"
 else
     echo "format of button test:./equip/test/button start/end"

@@ -6,6 +6,12 @@
 		},
 		"hotplug.hostapd": {
 			"methods": [ "call" ]
-		}		
+		},
+		"uci": {
+			"methods": [ "get" ]
+		},
+		"hotplug.led": {
+			"methods": [ "call" ]
+		}
 	}
 }

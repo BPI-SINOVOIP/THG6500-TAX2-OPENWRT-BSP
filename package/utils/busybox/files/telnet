@@ -6,7 +6,11 @@ START=50
 
 
 start() {
-	service_start /usr/sbin/telnetd -l /bin/login.sh
+	config_load busybox
+	config_get enable telnet enable
+	if [ x"$enable" = x"1" ]; then
+		service_start /usr/sbin/telnetd -l /bin/login.sh
+	fi
 }
 
 stop() {

@@ -2,14 +2,27 @@
 
 type="$1"
 
+UCI_SET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} set"
+UCI_GET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} get"
+UCI_COMMIT="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} commit"
+
+datamode=`$UCI_GET easycwmp.@device[0].datamode`
+
+[ "$type" == "$datamode" ] && return 0
+
 /etc/init.d/easycwmpd stop
 
 if [ $type == "181" ]; then
         cp /etc/easycwmp/easycwmp181 /etc/config/easycwmp
         cp /usr/sbin/dmc181 /usr/sbin/datamodel
-else
+elif [ $type == "098" ]; then
         cp /etc/easycwmp/easycwmp098 /etc/config/easycwmp
         cp /usr/sbin/dmc098 /usr/sbin/datamodel
+else
+	logger -t datamode_change -p error "change fail type=$1"
 fi
+
+$UCI_SET easycwmp.@device[0].datamode=$type
+$UCI_COMMIT easycwmp
 
 /etc/init.d/easycwmpd start

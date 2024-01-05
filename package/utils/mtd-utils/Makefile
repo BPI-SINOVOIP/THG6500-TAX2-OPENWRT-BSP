@@ -72,14 +72,12 @@ define Package/ubi-utils/install
 		$(PKG_INSTALL_DIR)/usr/sbin/{ubiattach,ubicrc32,ubiblock,ubidetach,ubiformat,ubimkvol} $(1)/usr/sbin/
 	$(INSTALL_BIN) \
 		$(PKG_INSTALL_DIR)/usr/sbin/{ubinfo,ubinize,ubirename,ubirmvol,ubirsvol,ubiupdatevol} $(1)/usr/sbin/
-	$(INSTALL_BIN) \
-		$(PKG_INSTALL_DIR)/usr/sbin/{mtd_debug,mtdinfo} $(1)/usr/sbin/
 endef
 
 define Package/nand-utils/install
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) \
-	$(PKG_INSTALL_DIR)/usr/sbin/{flash_erase,nanddump,nandwrite,nandtest,mtdinfo} $(1)/usr/sbin/
+	$(PKG_INSTALL_DIR)/usr/sbin/{flash_erase,nanddump,nandwrite,nandtest,mtdinfo,mtd_debug} $(1)/usr/sbin/
 endef
 
 $(eval $(call BuildPackage,ubi-utils))

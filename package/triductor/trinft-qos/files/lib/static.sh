@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2018 rosysong@rosinson.com
+# Copyright © 2023 Triductor Technology(Suzhou) Inc. - http://www.triductor.com/
 #
 
 . /lib/nft-qos/core.sh

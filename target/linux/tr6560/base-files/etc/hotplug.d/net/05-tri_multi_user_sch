@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# 只处理add事件
+if [ "$ACTION" != "add" ]; then
+exit 0
+fi
+
+string=`uci show wireless | grep "device=" | awk '{split($0,arr,".");print arr[2] }'`
+
+for iRadio_node in $string; do
+    ifname=`uci -q get wireless.$iRadio_node.ifname`
+    if [ -z $ifname ]; then
+        ifname=`uci -q -P /var/state get wireless.$iRadio_node.ifname`
+    fi
+
+    if [ "$ifname" = "$DEVICENAME" ]; then
+        modeiRadio=`uci -q get wireless.$iRadio_node.mode`
+        if [ "$modeiRadio" = "ap" ]; then
+        extpriv.sh "$ifname alg_cfg sch_method 1"
+        fi
+    fi
+done

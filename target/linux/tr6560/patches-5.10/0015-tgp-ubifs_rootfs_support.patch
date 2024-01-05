@@ -1,0 +1,35 @@
+diff -Nrau a/drivers/mtd/ubi/build.c b/drivers/mtd/ubi/build.c
+--- a/drivers/mtd/ubi/build.c	2023-08-03 17:36:52.241587500 +0800
++++ b/drivers/mtd/ubi/build.c	2023-11-01 16:06:55.326356531 +0800
+@@ -1226,8 +1226,8 @@
+ 
+ 	/* check for a valid ubi magic */
+ 	if (strncmp(magic, "UBI#", 4)) {
+-		pr_err("UBI error: no valid UBI magic found inside mtd%d\n", mtd->index);
+-		goto cleanup;
++		pr_err("UBI error: no valid UBI magic found inside mtd%d, flashtype: %d\n", mtd->index, mtd->type);
++		/*goto cleanup;*/
+ 	}
+ 
+ 	/* don't auto-add media types where UBI doesn't makes sense */
+@@ -1238,7 +1238,7 @@
+ 		goto cleanup;
+ 
+ 	mutex_lock(&ubi_devices_mutex);
+-	pr_notice("UBI: auto-attach mtd%d\n", mtd->index);
++	pr_notice("UBI: auto-attach mtd%d offset 0x%x\n", mtd->index, offset);
+ 	err = ubi_attach_mtd_dev(mtd, UBI_DEV_NUM_AUTO, 0, 0);
+ 	mutex_unlock(&ubi_devices_mutex);
+ 	if (err < 0) {
+diff -Nrau a/init/do_mounts.c b/init/do_mounts.c
+--- a/init/do_mounts.c	2023-08-03 17:36:52.241587500 +0800
++++ b/init/do_mounts.c	2023-11-01 16:07:28.159033788 +0800
+@@ -478,7 +478,7 @@
+ #ifdef CONFIG_MTD_ROOTFS_ROOT_DEV
+ static int __init mount_ubi_rootfs(void)
+ {
+-	int flags = MS_SILENT;
++	int flags = root_mountflags;
+ 	int err, tried = 0;
+ 
+ 	while (tried < 2) {

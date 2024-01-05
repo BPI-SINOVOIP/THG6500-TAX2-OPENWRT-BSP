@@ -1,0 +1,30 @@
+#!/bin/sh
+
+main()
+{
+    local optionStatus='prplmesh.config.status'
+    local oldStatus=''
+
+    if [ "$ACTION" != "linkup" -a "$ACTION" != "linkdown" -a "$ACTION" != "linking" ]; then
+        return
+    fi
+
+
+    oldStatus=`uci -q -P /var/state/ get $optionStatus`
+    [ -n "$oldStatus" -a "$ACTION" = "$oldStatus" ] && return
+
+    logger -t mesh_status -p notice "oldStatus=$oldStatus, newStatus=$ACTION"
+
+    uci -P /var/state/ revert $optionStatus
+    uci -P /var/state/ set $optionStatus=$ACTION
+    if [ "$ACTION" = "linkdown" ]; then
+        cat /dev/null > /tmp/meshTopology.json
+    fi
+}
+
+
+
+
+
+
+main

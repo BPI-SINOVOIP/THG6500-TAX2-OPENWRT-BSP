@@ -1,0 +1,6 @@
+#!/bin/sh
+
+
+# delete luci cache because agent shows different pages
+rm /tmp/luci-* -rf
+

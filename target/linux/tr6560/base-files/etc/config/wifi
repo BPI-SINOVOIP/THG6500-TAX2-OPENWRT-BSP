@@ -1,0 +1,8 @@
+config service wifi5
+	option enable '0'
+
+config radio radio0
+	option ap_num '0'
+
+config radio radio1
+	option ap_num '0'

@@ -32,6 +32,10 @@ endef
 define Build/Configure
 endef
 
+ifeq ($(CONFIG_PACKAGE_nand-utils),y)
+	TARGET_CFLAGS += -DNAND
+endif
+
 define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR) \
 		CC="$(TARGET_CC)" \

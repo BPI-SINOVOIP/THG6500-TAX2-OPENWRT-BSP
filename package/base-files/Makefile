@@ -40,7 +40,7 @@ define Package/base-files
   SECTION:=base
   CATEGORY:=Base system
   DEPENDS:= +netifd +libc +jsonfilter +SIGNED_PACKAGES:usign +SIGNED_PACKAGES:openwrt-keyring +NAND_SUPPORT:ubi-utils +fstools +fwtool +kmod-nf-conntrack
-  DEPENDS+= +libstdcpp +libcurl +libopenssl +zlib +libamxb +libamxc +libamxd +libamxo +libamxp +libnl +libnl-genl +libnl-route
+  DEPENDS+= +libstdcpp +libcurl +libopenssl +zlib +libamxb +libamxc +libamxd +libamxo +libamxp +libnl +libnl-genl +libnl-route +jsoncpp
   TITLE:=Base filesystem for OpenWrt
   URL:=http://openwrt.org/
   VERSION:=$(PKG_RELEASE)-$(REVISION)

@@ -1,22 +1,191 @@
 [ ! -e /etc/config/wireless ] && exit 0
 
 . /lib/functions/system.sh
+. /lib/functions/working-mode.sh
 
+set_common_config()
+{
+    ssid_2g=$(nvram get wlan2.4G_SSID)
+    if [ -z "$ssid_2g" ]; then
+        ssid_2g="$1"
+    fi
 
+    passwd_2g=$(nvram get wlan2.4G_password)
+    if [ -z "$passwd_2g" ]; then
+        encryption_2g=none
+    else
+        encryption_2g=sae-mixed
+    fi
 
-set_device_config()
+    ssid_5g=$(nvram get wlan5G_SSID)
+    if [ -z "$ssid_5g" ]; then
+        ssid_5g="$2"
+    fi
+
+    passwd_5g=$(nvram get wlan5G_password)
+    if [ -z "$passwd_5g" ]; then
+        encryption_5g=none
+    else
+        encryption_5g=sae-mixed
+    fi
+
+    uci batch <<EOF
+        set wireless.radio0.channel=auto
+        set wireless.radio0.disabled=0
+        set wireless.radio0.country=CN
+
+        set wireless.default_radio0.ssid='$ssid_2g'
+        set wireless.default_radio0.key='$passwd_2g'
+        set wireless.default_radio0.encryption='$encryption_2g'
+        set wireless.default_radio0.ifname='wlan0-ap'
+
+        set wireless.radio1.channel=auto
+        set wireless.radio1.disabled=0
+        set wireless.radio1.country=CN
+
+        set wireless.default_radio1.ssid='$ssid_5g'
+        set wireless.default_radio1.key='$passwd_5g'
+        set wireless.default_radio1.encryption='$encryption_5g'
+        set wireless.default_radio1.ifname='wlan1-ap'
+EOF
+}
+
+set_default_wireless_config()
 {
     device=$(board_name)
 
     case $device in
         *)
+            set_common_config Triductor_2GAp Triductor_5GAp
             ;;
     esac
 }
 
 
+set_ap_mesh_bfh_config()
+{
+    band=$1
+    mode=$2
+    hidden=$3
+    local ssid_ext=''
 
-set_device_config
+    if [ "$band" = "2G" ]; then
+        index=0
+    else
+        index=1
+    fi
+
+    if [ "$mode" = "bh" ]; then
+        multi_ap='1'
+    else
+        multi_ap='2'
+    fi
+    
+    if [ "$hidden" = "hide" ]; then
+        hide='1'
+    else
+        hide='0'
+    fi
 
 
-exit 0
+    mode_upper=`echo $mode | tr 'a-z' 'A-Z'`
+    ssid_ext=`uci -q get network.@device[1].macaddr | awk -F: '{print $5 $6}'`
+    
+    uci batch <<EOF
+        set wireless.wlan${index}_ap_${mode}=wifi-iface
+        set wireless.wlan${index}_ap_${mode}.disabled='1'
+        set wireless.wlan${index}_ap_${mode}.device='radio${index}'
+        set wireless.wlan${index}_ap_${mode}.network='lan'
+        set wireless.wlan${index}_ap_${mode}.mode='ap'
+        set wireless.wlan${index}_ap_${mode}.key='12345678'
+        set wireless.wlan${index}_ap_${mode}.encryption='psk2'
+        set wireless.wlan${index}_ap_${mode}.ssid='Tri_Mesh_${mode_upper}_${ssid_ext}'
+        set wireless.wlan${index}_ap_${mode}.multi_ap=$multi_ap
+        set wireless.wlan${index}_ap_${mode}.wds='1'
+        set wireless.wlan${index}_ap_${mode}.wps_pushbutton=$wps_pushbutton
+        set wireless.wlan${index}_ap_${mode}.ifname='wlan${index}-ap-${mode}'
+        set wireless.wlan${index}_ap_${mode}.hidden=$hide
+EOF
+}
+
+set_sta_mesh_config()
+{
+    uci batch <<EOF
+        set wireless.wlan0_sta_bh=wifi-iface
+        set wireless.wlan0_sta_bh.disabled='1'
+        set wireless.wlan0_sta_bh.device='radio0'
+        set wireless.wlan0_sta_bh.mode='sta'
+        set wireless.wlan0_sta_bh.wds='1'
+        set wireless.wlan0_sta_bh.network='lan'
+        set wireless.wlan0_sta_bh.multi_ap='1'
+        set wireless.wlan0_sta_bh.default_disabled='1'
+        set wireless.wlan0_sta_bh.ifname='wlan0-sta-bh'
+
+        set wireless.wlan1_sta_bh=wifi-iface
+        set wireless.wlan1_sta_bh.disabled='1'
+        set wireless.wlan1_sta_bh.device='radio1'
+        set wireless.wlan1_sta_bh.mode='sta'
+        set wireless.wlan1_sta_bh.wds='1'
+        set wireless.wlan1_sta_bh.network='lan'
+        set wireless.wlan1_sta_bh.multi_ap='1'
+        set wireless.wlan1_sta_bh.default_disabled='1'
+        set wireless.wlan1_sta_bh.ifname='wlan1-sta-bh'
+EOF
+}
+
+set_mesh_wireless_config()
+{
+    local device=$1
+
+    # device dependent config
+    case $device in
+        *)
+            set_ap_mesh_bfh_config 2G bh hide
+            set_ap_mesh_bfh_config 2G fh
+            set_ap_mesh_bfh_config 5G bh hide
+            set_ap_mesh_bfh_config 5G fh
+            set_sta_mesh_config
+            ;;
+    esac
+
+
+}
+
+
+
+set_repeater_wireless_config()
+{
+    uci batch <<EOF
+        set wireless.repeater=wifi-iface
+        set wireless.repeater.device=radio0
+        set wireless.repeater.network='wwan'
+        set wireless.repeater.mode='sta'
+        set wireless.repeater.ssid=$ssid
+        set wireless.repeater.encryption=$encryption
+        set wireless.repeater.key=$key
+        set wireless.repeater.ifname='wlan0-sta-rp'
+        set wireless.repeater.disabled='1'
+EOF
+}
+
+
+main()
+{
+    local device=$(board_name)
+    local curmode=`uci get network.globals.curmode` # bridge/router/repeater
+
+    # generate default wireless config
+    set_default_wireless_config $device
+
+    # generate mesh related wireless config
+    set_mesh_wireless_config $device
+
+    # generate repeater related wireless config
+    set_repeater_wireless_config $device
+
+    working_mode_set_wireless "$curmode"
+}
+
+
+main
+

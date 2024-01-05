@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# 只处理add事件
+[ "$ACTION" = "add" ] || exit 0
+[ "$DEVICENAME" = 'wlan1-ap' ] || exit 0
+
+logger -t 06_net_DisableDfs "disable dfs now"
+
+extpriv.sh "wlan1-ap radartool dfsenable 0"

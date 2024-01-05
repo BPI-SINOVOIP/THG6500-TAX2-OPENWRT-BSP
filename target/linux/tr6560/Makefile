@@ -25,13 +25,11 @@ include $(INCLUDE_DIR)/target.mk
 # triductor自研package
 DEFAULT_PACKAGES += hostapd-utils wireless-tools wpad-basic-wolfssl wpa-cli uledd getopt\
 luci luci-compat luci-ssl luci-app-omcproxy\
-conntrack lftp nvram tcpdump ip-bridge memtester\
+conntrack ethtool ip-bridge lftp memtester nand-utils nvram tcpdump xl2tpd udhcpsnoop\
 kmod-gpio-button-hotplug kmod-leds-gpio \
-dmc-215 easycwmp \
-start-boot_6560 triboot kmod-kgpio_adapter kmod-igmp_mdb_notify tri_bsp cs_cli luci-app-triqos trinft-qos \
-libamxb  mod-amxb-ubus prplmesh ethtool\
-xl2tpd sshpass luci-app-lxc lxc-checkconfig lxc-destroy lxc-info lxc-ls lxc-start lxc-stop tar strace openssh-client-utils \
-bind-dig
+dmc easycwmp \
+start-boot_6560 triboot kmod-kgpio_adapter kmod-igmp_mdb_notify tri_bsp cs_cli luci-app-triqos trinft-qos firewall4br\
+libamxb  mod-amxb-ubus prplmesh  meshinfo
 
 $(eval $(call BuildTarget))
 

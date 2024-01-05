@@ -1,0 +1,3 @@
+
+config prplmesh 'config'
+        option enable '0'

@@ -1,34 +1,44 @@
 [ -e '/etc/config/network' ] || exit 0
 
 . /lib/functions/system.sh
+. /lib/functions/working-mode.sh
 
-
-switch_to_bridge_mode()
+set_network()
 {
+    local device=$1
+    local curmode=''
+
+    # device independent config
     uci batch << 'EOF'
         set network.agent='interface'
         set network.agent.proto='dhcp'
         set network.agent.device='br-lan'
-        set network.wan.disabled=1
-        set network.wan6.disabled=1
-        add_list network.@device[0].ports=wan
-        set dhcp.lan.ignore='1'
+        set network.wwan='interface'
+        set network.wwan.proto='dhcp'
+
+        set network.globals.ula_prefix=''
+        set network.@device[0].multicast_to_unicast='0'
 EOF
-}
 
-
-
-
-
-set_device_config()
-{
-    device=$(board_name)
-
+    # device dependent config
     case $device in
+        'example_router')
+            curmode='router'
+            ;;
         *)
-            [ -e '/etc/config/prplmesh' ] && `switch_to_bridge_mode`
+            curmode='router'
             ;;
     esac
+
+
+    working_mode_set_network $curmode
 }
 
-set_device_config # 根据device设置个性参数
+main()
+{
+    local device=$(board_name)
+
+    `set_network $device`
+}
+
+main

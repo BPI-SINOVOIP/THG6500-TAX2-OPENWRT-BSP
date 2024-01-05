@@ -1,0 +1,77 @@
+diff -uprN a/blob_led.c b/blob_led.c
+--- a/blob_led.c	2023-04-10 16:24:31.626660733 +0800
++++ b/blob_led.c	2023-09-25 15:20:50.201480472 +0800
+@@ -59,7 +59,7 @@ blob_led_parse(struct blob_buf *blob, si
+ 	size_t rem;
+ 	struct blob_led *led;
+ 	struct blob_attr *tb[__COLOUR_MAX], *cur;
+-	int blink = 0, fade = 0, on = 0, off = 0;
++	int blink = -1, fade = 0, on = 0, off = 0;
+ 
+ 	blobmsg_parse(colour_policy, __COLOUR_MAX, tb, blob, blob_len);
+ 	if (!tb[COLOUR_LEDS])
+diff -uprN a/led.c b/led.c
+--- a/led.c	2023-09-25 15:19:59.433973028 +0800
++++ b/led.c	2023-10-23 13:19:56.828287093 +0800
+@@ -42,6 +42,7 @@ struct led {
+ 	int current;
+ 	int delta;
+ 	struct led_timer timer;
++	struct led_timer blink_timer;
+ 	struct blob_led *b;
+ };
+ 
+@@ -155,6 +156,15 @@ led_fade_in(struct led *led)
+ }
+ 
+ static void
++led_blink_timer_cb(struct led_timer *t)
++{
++	struct led *led = container_of(t, struct led, blink_timer);
++
++	led_stop(led);
++	led_set(led, 0);
++}
++
++static void
+ led_timer_cb(struct led_timer *t)
+ {
+ 	struct led *led = container_of(t, struct led, timer);
+@@ -220,7 +230,7 @@ led_add(struct blob_led *b)
+ 	else
+ 		led->b->original = led->current;
+ 
+-	if (b->blink && b->on && b->off)
++	if ((b->blink != -1) && b->on && b->off)
+ 		led->state = LED_BLINK_ON;
+ 	else if (b->fade && (b->brightness > b->original))
+ 		led->state = LED_FADE_IN;
+@@ -232,6 +242,9 @@ led_add(struct blob_led *b)
+ 	led_timer_cancel(&led->timer);
+ 	led->timer.cb = led_timer_cb;
+ 
++	led_timer_cancel(&led->blink_timer);
++	led->blink_timer.cb = led_blink_timer_cb;
++
+ 	DEBUG(3, "%s\n", blob_led_str(b));
+ 	return led;
+ }
+@@ -239,7 +252,7 @@ led_add(struct blob_led *b)
+ void
+ led_run(struct led *led)
+ {
+-	int timeout;
++	int timeout, blink_timeout = 0;
+ 
+ 	if (!led)
+ 		return;
+@@ -263,6 +276,9 @@ led_run(struct led *led)
+ 		break;
+ 
+ 	case LED_BLINK_ON:
++		blink_timeout = led->b->blink;
++		if (blink_timeout)
++			led_timer_set(&led->blink_timer, blink_timeout);
+ 		timeout = led->b->on;
+ 		led_set(led, led->b->brightness);
+ 		break;

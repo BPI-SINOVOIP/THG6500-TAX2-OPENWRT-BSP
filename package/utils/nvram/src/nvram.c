@@ -19,7 +19,7 @@
 		__FILE__, __LINE__, __FUNCTION__, msg ? msg : "?")
 
 /* Size of "nvram" MTD partition */
-size_t nvram_part_size = 0;
+size_t nvram_part_size = 0;//如果是NAND，表示1个擦除块的大小，而不是整个MTD分区
 
 
 /*
@@ -105,13 +105,6 @@ static int _nvram_rehash(nvram_handle_t *h)
 	/* (Re)initialize hash table */
 	_nvram_free(h);
 
-	
-	/* nvram len issue*/
-	if (header->len <= (sizeof(nvram_header_t)) )
-	{
-		return 0;
-	}
-
 	/* Parse and set "name=value\0 ... \0\0" */
 	name = (char *) &header[1];
 
@@ -156,6 +149,31 @@ nvram_header_t * nvram_header(nvram_handle_t *h)
 {
 	return (nvram_header_t *) &h->mmap[h->offset];
 }
+
+
+nvram_handle_t * nvram_init(int fd, char* mmap_area)
+{
+	nvram_handle_t *h;
+
+	h = malloc(sizeof(nvram_handle_t));
+	if(h == NULL)
+	{
+		printf("[%s(%d)] ERROR:malloc failed\n", __FUNCTION__, __LINE__);
+		munmap(mmap_area, nvram_part_size);
+		close(fd);
+		return NULL;
+	}
+
+
+	h->fd	  = fd;
+	h->mmap   = mmap_area;
+	h->length = nvram_part_size;
+	h->offset = 0;
+	nvram_commit(h);
+
+	return h;
+}
+
 
 /* Get the value of an NVRAM variable. */
 char * nvram_get(nvram_handle_t *h, const char *name)
@@ -389,14 +407,19 @@ nvram_handle_t * nvram_open(const char *file, int rdonly)
 				}
 			}
 
-			/*if( offset < 0 )
+			if( offset < 0 )
 			{
+			#if 0
 				munmap(mmap_area, nvram_part_size);
 				free(mtd);
 				close(fd);
 				return NULL;
+			#else
+				free(mtd);
+				return nvram_init(fd, mmap_area);
+			#endif
 			}
-			else*/ if( (h = malloc(sizeof(nvram_handle_t))) != NULL )
+			else if( (h = malloc(sizeof(nvram_handle_t))) != NULL )
 			{
 				memset(h, 0, sizeof(nvram_handle_t));
 
@@ -405,16 +428,7 @@ nvram_handle_t * nvram_open(const char *file, int rdonly)
 				h->length = nvram_part_size;
 				h->offset = offset;
 
-				if (offset < 0){
-					memset(h->mmap, 0xFF, nvram_part_size - sizeof(nvram_header_t));
-					h->offset = 0;
-					header = nvram_header(h);
-					header->magic = NVRAM_MAGIC;
-					header->len = sizeof(nvram_header_t);
-				}
-				else{
-					header = nvram_header(h);
-				}
+				header = nvram_header(h);
 
 				if (header->magic == NVRAM_MAGIC &&
 				    (rdonly || header->len < h->length - h->offset)) {
@@ -456,11 +470,38 @@ char * nvram_find_mtd(void)
 	char *path = NULL;
 	struct stat s;
 
+#ifdef NAND
+	int erasesize;
+
 	if ((fp = fopen("/proc/mtd", "r")))
 	{
 		while( fgets(dev, sizeof(dev), fp) )
 		{
-			if( strstr(dev, "equip") && sscanf(dev, "mtd%d: %08x", &i, &part_size) )
+			if( strstr(dev, "equip") && sscanf(dev, "mtd%d: %08x %08x", &i, &part_size, &erasesize) )
+			{
+				nvram_part_size = erasesize;
+
+				sprintf(dev, "/dev/mtd%d", i);
+				if( stat(dev, &s) > -1 && (s.st_mode & S_IFCHR) )
+				{
+					if( (path = (char *) malloc(strlen(dev)+1)) != NULL )
+					{
+						strncpy(path, dev, strlen(dev)+1);
+						break;
+					}
+				}
+			}
+		}
+		fclose(fp);
+	}
+
+	//printf("[%s(%d)] nvram_part_size=0x%X, path=%s\n", __FUNCTION__, __LINE__, nvram_part_size, path);
+#else
+	if ((fp = fopen("/proc/mtd", "r")))
+	{
+		while( fgets(dev, sizeof(dev), fp) )
+		{
+			if( strstr(dev, "nvram") && sscanf(dev, "mtd%d: %08x", &i, &part_size) )
 			{
 				nvram_part_size = part_size;
 
@@ -478,6 +519,7 @@ char * nvram_find_mtd(void)
 		fclose(fp);
 	}
 
+#endif
 	return path;
 }
 
@@ -497,6 +539,21 @@ char * nvram_find_staging(void)
 /* Copy NVRAM contents to staging file. */
 int nvram_to_staging(void)
 {
+#ifdef NAND
+	char *mtd = nvram_find_mtd();
+	char cmd[128] = {0};
+
+	//printf("[%s(%d)] nvram_part_size=0x%X, mtd=%s\n", __FUNCTION__, __LINE__, nvram_part_size, mtd);
+	if( (mtd != NULL) && (nvram_part_size > 0) )
+	{
+		snprintf(cmd, sizeof(cmd), "nanddump -q -a -f %s -l 0x%X %s", NVRAM_STAGING, nvram_part_size, mtd);
+		//printf("[%s(%d)] cmd=%s\n", __FUNCTION__, __LINE__, cmd);
+		system(cmd);
+	}
+
+	free(mtd);
+	return 0;
+#else
 	int fdmtd, fdstg, stat;
 	char *mtd = nvram_find_mtd();
 	char buf[nvram_part_size];
@@ -525,11 +582,32 @@ int nvram_to_staging(void)
 
 	free(mtd);
 	return stat;
+#endif
 }
 
 /* Copy staging file to NVRAM device. */
 int staging_to_nvram(void)
 {
+#ifdef NAND
+	char *mtd = nvram_find_mtd();
+	char cmd[128] = {0};
+
+	//printf("[%s(%d)] nvram_part_size=0x%X, mtd=%s\n", __FUNCTION__, __LINE__, nvram_part_size, mtd);
+	if( (mtd != NULL) && (nvram_part_size > 0) )
+	{
+		/* 写之前必须先擦除，第2个0表示擦除整个分区 */
+		snprintf(cmd, sizeof(cmd), "flash_erase %s 0 0 >/dev/null 2>&1", mtd);
+		//printf("[%s(%d)] cmd=%s\n", __FUNCTION__, __LINE__, cmd);
+		system(cmd);
+
+		snprintf(cmd, sizeof(cmd), "nandwrite -q %s %s", mtd, NVRAM_STAGING);
+		//printf("[%s(%d)] cmd=%s\n", __FUNCTION__, __LINE__, cmd);
+		system(cmd);
+	}
+
+	free(mtd);
+	return 0;
+#else
 	int fdmtd, fdstg, stat;
 	char *mtd = nvram_find_mtd();
 	char buf[nvram_part_size];
@@ -560,4 +638,5 @@ int staging_to_nvram(void)
 
 	free(mtd);
 	return stat;
+#endif
 }

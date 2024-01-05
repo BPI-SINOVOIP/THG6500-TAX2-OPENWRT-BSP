@@ -1,0 +1,34 @@
+. /lib/functions/network.sh
+
+[ "$INTERFACE" = 'lan' ] || exit 0
+
+main()
+{
+    local tableName='fw4br'
+    local chainName='prerouting'
+    local sectionName='AccessLanInBridgeMode'
+    local handle=`uci -q -p /var/state get firewall.$sectionName.handle`
+
+    if [ -n "$handle" ]; then
+        nft delete rule bridge $tableName $chainName handle $handle
+    fi
+
+    management_mode=`uci -q get prplmesh.config.management_mode`
+    [ "$management_mode" = "Not-Multi-AP" ] || exit 0 # A or C don't need to add this rule
+
+    curmode=`uci -q get network.globals.curmode`
+    if [ "$curmode" = "bridge" -o "$curmode" = "repeater" ]; then # A or C don't need to add this rule
+        logger -t working-mode_AccessLanInBridgeMode -p notice "create nft rule for $curmode"
+
+        ip=`uci -q get network.lan.ipaddr`
+        mac=`cat /etc/board.json | jsonfilter -e "@.network['lan']['macaddr']"`
+        result=`nft -e -a add rule bridge $tableName $chainName ip daddr $ip ether daddr set $mac meta pkttype set host`
+        handle=`echo ${result} |awk -F '#' '{print $2}' | awk '{print $2}'`
+        uci -P /var/state revert firewall.$sectionName
+        uci -P /var/state set firewall.$sectionName=rule
+        uci -P /var/state set firewall.$sectionName.handle=$handle
+    fi
+}
+
+
+main

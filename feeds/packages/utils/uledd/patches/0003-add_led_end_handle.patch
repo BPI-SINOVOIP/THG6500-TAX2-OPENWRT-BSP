@@ -1,0 +1,31 @@
+diff -uprN a/led.c b/led.c
+--- a/led.c	2023-10-25 14:35:56.829245480 +0800
++++ b/led.c	2023-10-25 14:36:52.149259266 +0800
+@@ -159,9 +159,12 @@ static void
+ led_blink_timer_cb(struct led_timer *t)
+ {
+ 	struct led *led = container_of(t, struct led, blink_timer);
++	char cmd[256];
+ 
+ 	led_stop(led);
+-	led_set(led, 0);
++
++	snprintf(cmd, sizeof(cmd), "ubus call hotplug.led call '{\"env\":[\"ACTION=led_end\",\"LED=%s\"]}'", led->b->path);
++	system(cmd);
+ }
+ 
+ static void
+@@ -169,10 +172,12 @@ led_timer_cb(struct led_timer *t)
+ {
+ 	struct led *led = container_of(t, struct led, timer);
+ 	int brightness, timeout;
++	char cmd[256];
+ 
+ 	switch (led->state) {
+ 	case LED_SET:
+-		led_set(led, 0);
++		snprintf(cmd, sizeof(cmd), "ubus call hotplug.led call '{\"env\":[\"ACTION=led_end\",\"LED=%s\"]}'", led->b->path);
++		system(cmd);
+ 		return;
+ 
+ 	case LED_BLINK_OFF:

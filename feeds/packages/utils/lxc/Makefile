@@ -144,8 +144,7 @@ CONFIGURE_ARGS += \
 	--disable-selinux \
 	--$(if $(CONFIG_LXC_SECCOMP),en,dis)able-seccomp \
 	--enable-capabilities \
-	--disable-examples \
-	--with-runtime-path=/var/run/
+	--disable-examples
 
 ifdef CONFIG_USE_MIPS16
   TARGET_CFLAGS += -minterlink-mips16
@@ -223,8 +222,6 @@ define Package/lxc-templates/install
 	$(CP) \
 		$(PKG_INSTALL_DIR)/usr/share/lxc/templates/lxc-* \
 		$(1)/usr/share/lxc/templates/
-	$(INSTALL_DIR) $(1)/usr/share/lxc/containers/
-	$(INSTALL_BIN) ./files/usr/share/lxc/containers/busybox $(1)/usr/share/lxc/containers/
 endef
 
 define Package/lxc-configs/install

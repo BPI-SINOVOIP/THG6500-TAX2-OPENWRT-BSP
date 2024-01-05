@@ -1,0 +1,55 @@
+#!/bin/sh
+
+[ "$ACTION" = "sta" ] || exit 0
+
+logger -t hostapd_hosts -p notice "ACTION=$ACTION" "MAC=$MAC" "STATUS=$STATUS" "SSID=$SSID" "IFNAME=$IFNAME"
+
+
+do_up()
+{
+    local sectionName=$1
+    local channel=`iwpriv $IFNAME getchannel | awk -F ':' '{print $2}' | sed 's/ //g'`
+    local radio=""
+    local accessTime=`date "+%Y-%m-%d %H:%M:%S"`
+
+    if [ $channel -gt 30 ]; then
+            radio="5G"
+    else
+            radio="2.4G"
+    fi
+
+    uci -c /var/state/ set hosts.${sectionName}="host"
+    uci -c /var/state/ set hosts.${sectionName}.ipAddress=""
+    uci -c /var/state/ set hosts.${sectionName}.staIPv6IPAddress=""
+    uci -c /var/state/ set hosts.${sectionName}.accessTime="$accessTime"
+    uci -c /var/state/ set hosts.${sectionName}.radio="$radio"
+    uci -c /var/state/ set hosts.${sectionName}.ssid="$SSID"
+    uci -c /var/state/ set hosts.${sectionName}.channel="$channel"
+    uci -c /var/state/ set hosts.${sectionName}.online="1"
+
+    uci -c /var/state/ set hosts.${sectionName}.new="1"
+    uci -c /var/state/ set hosts.${sectionName}.mac=$MAC
+    uci -c /var/state/ commit hosts
+}
+
+
+do_down()
+{
+   uci -c /var/state/ set hosts.${sectionName}.online="0"
+   uci -c /var/state/ set hosts.${sectionName}.new="1"
+   uci -c /var/state/ commit hosts
+}
+
+
+main()
+{
+    sectionName=`echo ${MAC//:/} | tr '[a-z]' '[A-Z]'` # "delete :" and "to uppercase"
+    if [ "$STATUS" = "up" ]; then
+        do_up $sectionName
+    else
+        do_down $sectionName
+    fi
+}
+
+
+main

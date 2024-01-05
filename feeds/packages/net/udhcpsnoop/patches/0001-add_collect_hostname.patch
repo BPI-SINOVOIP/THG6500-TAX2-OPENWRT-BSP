@@ -1,0 +1,338 @@
+diff -aur a/dhcp.h b/dhcp.h
+--- a/dhcp.h	2023-09-15 14:55:12.822776766 +0800
++++ b/dhcp.h	2023-09-11 17:45:19.486002549 +0800
+@@ -52,6 +52,7 @@
+ 	DHCPV4_OPT_HOSTNAME = 12,
+ 	DHCPV4_OPT_REQUEST = 17,
+ 	DHCPV4_OPT_USER_CLASS = 77,
++	DHCPV4_OPT_CLIENT_NAME = 81,
+ 	DHCPV4_OPT_AUTHENTICATION = 90,
+ 	DHCPV4_OPT_SEARCH_DOMAIN = 119,
+ 	DHCPV4_OPT_FORCERENEW_NONCE_CAPABLE = 145,
+diff -aur a/main.c b/main.c
+--- a/main.c	2023-09-15 14:36:30.373363406 +0800
++++ b/main.c	2023-09-15 14:33:03.091625046 +0800
+@@ -3,6 +3,7 @@
+ /* code is derived from hapd proxy_arp snooping */
+ 
+ #include "dhcp.h"
++#include "iconv.h"
+ 
+  /*sudo tcpdump -s 3000 -dd greater 96 and '(ip or ip6)' and udp and '(port bootps or port bootpc or port 546 or port 547)' */
+ static struct sock_filter dhcp_sock_filter_insns[] = {
+@@ -47,6 +48,10 @@
+ #define NETIFD_PATH	"network.interface."
+ #define NETIFD_PATH_LEN	strlen("network.interface.")
+ 
++#define UCI_STATE_DIR "/var/state/"
++#define UCI_SET "uci -c /var/state/ set hosts."
++#define UCI_COMMIT "uci -c /var/state/ commit hosts"
++
+ struct dhcpsnoop {
+ 	struct avl_node avl;
+ 	struct uloop_fd fd;
+@@ -60,6 +65,106 @@
+ static char hex_buf[2 * 1500 + 1];
+ static struct blob_buf b;
+ 
++
++/*gbk to utf8*/
++static int IsUTF8(const void* pBuffer, long size)
++{
++        int IsUTF8 = 1;  
++        unsigned char* start = (unsigned char*)pBuffer;  
++        unsigned char* end = (unsigned char*)pBuffer + size;  
++        while (start < end)  
++        {  
++                if (*start < 0x80) // (10000000): 值小于0x80的为ASCII字符    
++                {  
++                        start++;  
++                }  
++                else if (*start < (0xC0)) // (11000000): 值介于0x80与0xC0之间的为无效UTF-8字符    
++                {  
++                        IsUTF8 = 0;  
++                        break;  
++                }  
++                else if (*start < (0xE0)) // (11100000): 此范围内为2字节UTF-8字符    
++                {  
++                        if (start >= end - 1)  
++                        {  
++                                break;  
++                        }  
++
++                        if ((start[1] & (0xC0)) != 0x80)  
++                        {  
++                                IsUTF8 = 0;  
++                                break;  
++                        }  
++
++                        start += 2;  
++                }  
++                else if (*start < (0xF0)) // (11110000): 此范围内为3字节UTF-8字符    
++                {  
++                        if (start >= end - 2)  
++                        {  
++                                break;  
++                        }  
++
++                        if ((start[1] & (0xC0)) != 0x80 || (start[2] & (0xC0)) != 0x80)  
++                        {  
++                                IsUTF8 = 0;  
++                                break;  
++                        }  
++
++                        start += 3;  
++                }  
++                else  
++                {  
++                        IsUTF8 = 0;  
++                        break;  
++                }  
++        }  
++
++        return IsUTF8;  
++}
++/*******************************************************************************
++* 函数名  : getGB2312ToUtf8
++* 描    述  : 转换编码函数
++* 输    入  : - str:
++*               : - len:
++* 输    出  : 无
++* 返回值  : CON_SOK  : 成功
++*                 CON_EFAIL: 失败
++*******************************************************************************/
++static int geGBt2312ToUtf8(char *str, size_t len, char *gOut, size_t *outLen)
++{
++	char *in = str;
++	char *out = gOut;
++	size_t slen = len;
++	size_t retlen = *outLen;
++	size_t olen = *outLen;
++	unsigned int ret = 0;
++	long cklen = len;
++
++	if(IsUTF8(str, cklen))
++	{
++		//ULOG_ERR((" UTF8 already(%s) =%s,line= %d\n"),str, __func__,__LINE__);
++		return -1;
++	}
++	
++	iconv_t cdOpt = iconv_open("UTF-8", "GBK");  /* GBK就是GB2312扩展版本 GB18030是兼容前两种编码最全 而ANSI是指GB2312 */
++	if(cdOpt <= 0)
++	{
++		ULOG_ERR((" iconv_open fail =%s,line= %d\n"),__func__,__LINE__);
++		return -1;
++	}
++	ret = iconv(cdOpt, &in, &slen, &out, &olen);
++	if (ret < 0)
++	{
++	    	ULOG_ERR(("iconv fail= %d\n"),__LINE__);
++	    	return -1;
++	}
++	*outLen = retlen - olen;
++
++    iconv_close(cdOpt);
++    return 0;
++}
++
+ static struct ubus_object_type ubus_object_type = {
+ 	.name = "dhcpsnoop"
+ };
+@@ -99,15 +204,93 @@
+ 	ubus_notify(&conn.ctx, &ubus_object, event, b.head, -1);
+ }
+ 
++uint8_t hostname_f = 0;
++static int uci_set_state_param(char* package, char* section, char* option, char* value)
++{
++	struct uci_ptr ptr = {0};
++	struct uci_context *ctx;
++	int ret = 0;
++
++	ctx = uci_alloc_context();
++	if (!ctx) {
++		ULOG_ERR("Out of memory\n");
++		return 1;
++	}
++	uci_set_confdir(ctx, UCI_STATE_DIR);
++
++	ptr.package = package;
++	ptr.section = section;
++	ptr.option = option;
++	/* NB: UCI_INTERNAL use means without delta tracking */
++	ctx->internal = true;
++	/* get uci ptr */
++	if (uci_lookup_ptr(ctx, &ptr, NULL, true) != UCI_OK) {
++		ULOG_ERR("uci_lookup_ptr error!\n");
++		/* free */
++		uci_unload(ctx,ptr.p);
++		uci_free_context(ctx);
++		return 1;
++	}
++	/* set value */
++	ptr.value = value;
++	ret = uci_set(ctx, &ptr);
++	/* save changes, but don't commit them yet */
++	if (ret == UCI_OK){
++		ret = uci_save(ctx, ptr.p);
++	}
++	else{
++		ULOG_ERR("uci_set error! ret:0x%x;\n",ret);
++		/* free */
++		uci_unload(ctx,ptr.p);
++		uci_free_context(ctx);
++		return ret;
++	}
++	/* free */
++	uci_unload(ctx,ptr.p);
++	uci_free_context(ctx);
++	return UCI_OK;
++}
++
++static int uci_commit_state_package(char* package)
++{
++	struct uci_ptr ptr = {0};
++	struct uci_context *ctx;
++	int ret = 0;
++
++	ctx = uci_alloc_context();
++	if (!ctx) {
++		ULOG_ERR("Out of memory\n");
++		return 1;
++	}
++	uci_set_confdir(ctx, UCI_STATE_DIR);
++	ptr.package = package;
++	/* get uci ptr */
++	if (uci_lookup_ptr(ctx, &ptr, NULL, true) != UCI_OK) {
++		ULOG_ERR("uci_lookup_ptr error!\n");
++		/* free */
++		uci_unload(ctx,ptr.p);
++		uci_free_context(ctx);
++		return 1;
++	}
++	ret = uci_commit(ctx, &ptr.p, false);
++	if (ret != UCI_OK){
++		ULOG_ERR("uci_commit error! ret:0x%x;\n",ret);
++	}
++	/* free */
++	uci_unload(ctx,ptr.p);
++	uci_free_context(ctx);
++	return UCI_OK;
++}
++
+ static void
+ packet_handle_v4(struct dhcpsnoop *snoop, uint8_t *buf, int len)
+ {
+-	char *name[] = {
+-		[DHCPV4_MSG_ACK] = "ack",
+-		[DHCPV4_MSG_DISCOVER] = "discover",
+-		[DHCPV4_MSG_OFFER] = "offer",
+-		[DHCPV4_MSG_REQUEST] = "request",
+-	};
++	//char *name[] = {
++	//char *n	[DHCPV4_MSG_ACK] = "ack",
++	//char *n	[DHCPV4_MSG_DISCOVER] = "discover",
++	//char *n	[DHCPV4_MSG_OFFER] = "offer",
++	//char *n	[DHCPV4_MSG_REQUEST] = "request",
++	//char *n};
+ 	struct dhcpv4_message *msg = (struct dhcpv4_message *)buf;
+ 	uint8_t *pos, *end;
+ 	int msg_type = 0;
+@@ -130,6 +313,11 @@
+ 
+ 	end = (uint8_t *) buf + len;
+ 	pos = &msg->options[4];
++	uint8_t name_len = 0;
++	char hostname[255] = {0};
++	char hostmac[17] = {0};
++	
++	sprintf(hostmac,"%02X%02X%02X%02X%02X%02X",MAC_VAR(client));
+ 	while (pos < end && *pos != DHCPV4_OPT_END) {
+ 		const uint8_t *opt = pos++;
+ 
+@@ -147,9 +335,71 @@
+ 			if (opt[1])
+ 				msg_type = opt[2];
+ 			break;
++		case DHCPV4_OPT_CLIENT_NAME:
++			if (opt[1]){
++				if (hostname_f)
++					break;
++				name_len = opt[1]-3;
++				memcpy(hostname,&opt[5],name_len);
++				char *utf_hostname = malloc(256);
++				size_t outLen = 255;
++				if(0 <= geGBt2312ToUtf8(hostname, strlen(hostname), utf_hostname, &outLen))
++				{
++					if(outLen > sizeof(hostname))outLen = sizeof(hostname);
++					memcpy(hostname,utf_hostname,outLen);
++					hostname[outLen]=0;
++				}
++				free(utf_hostname);
++
++				hostname_f = 1;
++				//ULOG_INFO("hostname_c: %s;\n", hostname);
++				//ULOG_INFO("%s%s=\"host\"\n",UCI_SET,hostmac);
++				uci_set_state_param("hosts",hostmac,0,"host");
++				//ULOG_INFO("%s%s.hostName=\"%s\"\n",UCI_SET,hostmac,hostname);
++				uci_set_state_param("hosts",hostmac,"hostName",hostname);
++				/* 不能执行commit,避免收不到ack报文 */
++				//uci_commit_state_package("hosts");
++			}
++			break;
++		case DHCPV4_OPT_HOSTNAME:
++			if (opt[1]){
++				if (hostname_f)
++					break;
++				name_len = opt[1];
++				memset(hostname,0,sizeof(hostname));
++				memcpy(hostname,&opt[2],name_len);
++				char *utf_hostname = malloc(256);
++				size_t outLen = 255;
++				if(0 <= geGBt2312ToUtf8(hostname, strlen(hostname), utf_hostname, &outLen))
++				{
++					if(outLen > sizeof(hostname))outLen = sizeof(hostname);
++					memcpy(hostname,utf_hostname,outLen);
++					hostname[outLen]=0;
++				}
++				free(utf_hostname);
++
++				hostname_f = 1;
++				//	ULOG_INFO("%s%s=\"host\"\n",UCI_SET,hostmac);
++				//	ULOG_INFO("hostname: %s;\n", hostname);
++				uci_set_state_param("hosts",hostmac,0,"host");
++				//	ULOG_INFO("%s%s.hostName=\"%s\"\n",UCI_SET,hostmac,hostname);
++				uci_set_state_param("hosts",hostmac,"hostName",hostname);
++				/* 不能执行commit,避免收不到ack报文 */
++				//uci_commit_state_package("hosts");
++			}
++			break;
+ 		}
+ 	}
+ 
++	/* set ip */
++	if(msg->yiaddr.s_addr != 0){
++		//ULOG_INFO("hostname:%s, ip:%s;\n", hostname,inet_ntoa(msg->yiaddr));
++		//ULOG_INFO("%s%s.ipAddress=\"%s\"\n",UCI_SET,hostmac,inet_ntoa(msg->yiaddr));
++		uci_set_state_param("hosts",hostmac,"ipAddress",inet_ntoa(msg->yiaddr));
++		uci_commit_state_package("hosts");
++		hostname_f = 0;
++	}
++
+ 	switch(msg_type) {
+ 	case DHCPV4_MSG_ACK:
+ 	case DHCPV4_MSG_DISCOVER:
+@@ -159,9 +409,10 @@
+ 	default:
+ 		return;
+ 	}
+-	dhcp_infrom(snoop, &msg->options[4], len - (&msg->options[4] - buf), 4,
+-		    name[msg_type], msg_type, client);
+-	dhcp_notify(snoop, name[msg_type], buf, len);
++	//	ULOG_INFO("get msg:%s:;ip:0x%x;\n", name[msg_type],msg->yiaddr.s_addr);
++	//dhcp_infrom(snoop, &msg->options[4], len - (&msg->options[4] - buf), 4,
++	//	    name[msg_type], msg_type, client);
++	//dhcp_notify(snoop, name[msg_type], buf, len);
+ }
+ 
+ static void

@@ -27,12 +27,12 @@ init_device_info() {
 
 	#配置是否为恢复出厂状态
 	oval=`$UCI_GET easycwmp.@device[0].factory`
-	if [ -d "/etc/easycwmp/" ]; then
+	if [ -f "/factory" ]; then
 		[ "0" != "$oval" ] && { $UCI_SET easycwmp.@device[0].factory="0"; change=1; }
 	else
 		$UCI_SET easycwmp.@device[0].factory="1"
 		change=1
-		mkdir -p "/etc/easycwmp/"
+		touch /factory
 	fi
 	
 	if [ "$change" = "1" ]; then

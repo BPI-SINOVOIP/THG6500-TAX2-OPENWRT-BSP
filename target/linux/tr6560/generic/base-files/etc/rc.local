@@ -1,0 +1,5 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+cs_cli /home/cli/api/ecs/eth/power_up_all
+exit 0

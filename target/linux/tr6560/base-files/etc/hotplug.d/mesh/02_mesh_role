@@ -1,88 +1,15 @@
 #!/bin/sh
 . /lib/functions/system.sh
-. /lib/functions.sh
+. /lib/functions/working-mode.sh
 
 
-change_to_gateway()
-{
-    uci batch <<EOF
-        set network.wan.disabled='0'
-        set network.wan6.disabled='0'
-        set network.agent.disabled='1'
-        del_list network.@device[0].ports=wan
-        set dhcp.lan.ignore='0'
-        commit
-EOF
-    /etc/init.d/dnsmasq restart
-    /etc/init.d/network restart
-}
-
-
-change_to_repeater()
-{
-    uci batch <<EOF
-        set network.wan.disabled=1
-        set network.wan6.disabled=1
-        set network.agent.disabled='0'
-        add_list network.@device[0].ports=wan
-        set dhcp.lan.ignore='1'
-        commit
-EOF
-
-    /etc/init.d/dnsmasq restart
-    /etc/init.d/network restart
-}
-
-do_set_network()
-{
-    device=$(board_name)
-    if [ $1 == "repeater_mode" ]; then
-        case $device in
-            *)
-                change_to_repeater
-                ;;
-        esac
-    elif [ $1 == "gateway_mode" ]; then
-        case $device in
-            *)
-                change_to_gateway
-                ;;
-        esac
-    fi
-}
-
-do_set_backhaul_band()
-{
-    case $1 in
-        "2g")
-            uci set prplmesh.config.backhaul_band='2.4GHz'
-            ;;
-        "5g")
-            uci set prplmesh.config.backhaul_band='5GHz'
-            ;;
-        "auto")
-            uci set prplmesh.config.backhaul_band='auto'
-            ;;
-        *)
-            logger -t mesh_role -p notice "unknow band type"
-            ;;
-    esac
-
-}
-
-clear_gui_cache()
-{
-       rm /tmp/luci-* -rf
-}
 
 case "$ACTION" in
     "rolechange")
-        logger -t mesh_role -p notice "ACTION=$ACTION" "MODE=$MODE" "BAND=$BAND"
-        do_set_backhaul_band $BAND
-        /etc/init.d/prplmesh $MODE
+        if [ "$MODE" != "gateway_mode" ]; then
+            exit 0
+        fi
 
-        # 上面先配置prplmesh，这里再配置网络，确保dhcp获取地址时，mesh角色已经正确
-        do_set_network $MODE
-        clear_gui_cache
+        /bin/scripts/modeSet.sh  controller
         ;;
 esac

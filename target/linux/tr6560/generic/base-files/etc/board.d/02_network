@@ -20,11 +20,10 @@ triductor_setup_interfaces()
 triductor_setup_macs()
 {
 	local board="$1"
-	local lan_mac=""
+	local lan_mac=$(nvram get mac)
 
 	case $board in
 	*)
-		lan_mac=$(nvram get mac)
 		[ -n "$lan_mac" ] && ucidef_set_interface_macaddr "lan" $lan_mac
 		[ -n "$lan_mac" ] && ucidef_set_interface_macaddr "wan" $(macaddr_add $lan_mac 1)
 		;;

@@ -17,37 +17,31 @@ missing_lines() {
 	IFS="$oIFS"
 }
 
-find_charmtd_part() {
-	local INDEX=$(find_mtd_index "$1")
-	local PREFIX=/dev/mtd
-
-	[ -d /dev/mtd ] && PREFIX=/dev/mtd/
-	echo "${INDEX:+$PREFIX$INDEX}"
-}
-
 DATA_PART="rootfs_data"
-DATA_DEV=$(find_charmtd_part $DATA_PART)
+DATA_DEV=$(find_char_mtd_part $DATA_PART)
 
 do_mount_root() {
 	local magic
 	
 	magic="$(get_magic_long $DATA_DEV cat)"
-	[ "$magic" != "55424923" ] && { 
-		ubiformat -y $DATA_DEV
+	[ "$magic" != "55424923" ] && {
+		echo "magic is $magic err(refer: 55424923)"
+		# ubiformat -y $DATA_DEV
 	}
 	ubiattach /dev/ubi_ctrl -m $(find_mtd_index $DATA_PART)
 	[ $? -ne 0 ] && {
 		ubiformat -y $DATA_DEV
+		echo "ubiattch error ret=$?"
 		ubiattach /dev/ubi_ctrl -m $(find_mtd_index $DATA_PART)
 	}
-	[ ! -c /dev/ubi0 ] && {
-		mknod /dev/ubi0 c 253 0
+	[ ! -c /dev/ubi1 ] && {
+		mknod /dev/ubi1 c 252 0
 	}
-	[ ! -d /sys/class/ubi/ubi0/ubi0_0 ] && {   #when erase rootfs_ubi
-		ubimkvol /dev/ubi0 -N rootfs_data -S $(cat /sys/devices/virtual/ubi/ubi0/avail_eraseblocks)
+	[ ! -d /sys/class/ubi/ubi1/ubi1_0 ] && {   #when erase rootfs_ubi
+		ubimkvol /dev/ubi1 -N rootfs_data -S $(cat /sys/devices/virtual/ubi/ubi1/avail_eraseblocks)
 	}
-	[ ! -c /dev/ubi0_0 ] && {
-		mknod /dev/ubi0_0 c 253 1
+	[ ! -c /dev/ubi1_0 ] && {
+		mknod /dev/ubi1_0 c 252 1
 	}
 
 	mount_root

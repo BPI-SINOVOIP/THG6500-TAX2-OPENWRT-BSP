@@ -1,0 +1,8 @@
+#!/bin/sh
+. /usr/sbin/wps_led.sh
+
+[ "$ACTION" = "led_end" ] || exit 0
+
+logger -t led_end -p notice "ACTION=$ACTION" "led=$LED"
+
+led off

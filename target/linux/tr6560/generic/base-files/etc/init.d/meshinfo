@@ -1,0 +1,37 @@
+#!/bin/sh /etc/rc.common
+
+START=90
+STOP=90
+
+USE_PROCD=1
+PROG=/usr/sbin/meshinfo
+
+UCI_GET="/sbin/uci -q ${UCI_CONFIG_DIR:+-c $UCI_CONFIG_DIR} get"
+SRC_FILE="/tmp/meshTopology.json"
+
+init_ln_file() {
+	local home
+	local lnpath
+
+	home=`$UCI_GET uhttpd.main.home`
+
+	[[ ! ${home} == \\/* ]] && str="/"${home}
+
+	lnpath=${home}"/meshTopology.json"
+
+	if [ ! -f ${SRC_FILE} ]; then
+		touch ${SRC_FILE}
+	fi
+
+	if [ ! -f ${lnpath} ]; then
+		ln -s ${SRC_FILE} ${lnpath}
+	fi
+}
+
+start_service() {
+	init_ln_file
+	procd_open_instance
+	procd_set_param command "$PROG"
+	procd_set_param respawn
+	procd_close_instance
+}

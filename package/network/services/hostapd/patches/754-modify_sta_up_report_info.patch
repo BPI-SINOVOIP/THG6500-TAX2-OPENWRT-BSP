@@ -1,0 +1,13 @@
+diff -uprN a/src/ap/sta_info.c b/src/ap/sta_info.c
+--- a/src/ap/sta_info.c	2023-08-23 13:56:05.437813212 +0800
++++ b/src/ap/sta_info.c	2023-08-23 13:55:55.613020597 +0800
+@@ -1349,7 +1349,8 @@ void ap_sta_set_authorized(struct hostap
+ 					  AP_STA_CONNECTED "%s%s%s",
+ 					  buf, ip_addr, keyid_buf);
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+-		sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=sta\",\"STATUS=up\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\"]}'", MAC2STR(sta->addr));
++		sprintf(ubus_buf, "ubus call hotplug.hostapd call '{\"env\":[\"ACTION=sta\",\"STATUS=up\",\"MAC=%02x:%02x:%02x:%02x:%02x:%02x\",\"SSID=%s\",\"IFNAME=%s\"]}'", 
++				MAC2STR(sta->addr), hapd->conf->ssid.ssid, hapd->conf->iface);
+ 		system(ubus_buf);
+ #endif
+ 	} else {

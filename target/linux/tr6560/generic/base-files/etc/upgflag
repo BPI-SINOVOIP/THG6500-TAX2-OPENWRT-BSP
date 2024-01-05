@@ -3,13 +3,6 @@
 
 param=""
 
-find_char_mtd_part() {
-	local INDEX=$(find_mtd_index "$1")
-	local PREFIX=/dev/mtd
-
-	[ -d /dev/mtd ] && PREFIX=/dev/mtd/
-	echo "${INDEX:+$PREFIX$INDEX}"
-}
 
 flag="$(cat /proc/mtd | grep kernelA | wc -l)"
 UPG_DEV_CHAR=$(find_char_mtd_part upgflag)
@@ -49,11 +42,15 @@ elif [ "$1" = "switch" ]; then
 	fi
 	if [ "$flag" = "0" ]; then
 		mtd erase ${UPG_DEV_CHAR}
-		echo B > ${UPG_DEV}
+		echo B > /tmp/upgflag.tmp
+		dd if=/tmp/upgflag.tmp of=/tmp/upgflag bs=1 count=1
+		mtd -f write /tmp/upgflag ${UPG_DEV_CHAR}
 		echo "Boot form B version"
 	elif [ "$flag" = "1" ]; then
 		mtd erase ${UPG_DEV_CHAR}
-		echo A > ${UPG_DEV}
+		echo A > /tmp/upgflag.tmp
+		dd if=/tmp/upgflag.tmp of=/tmp/upgflag bs=1 count=1
+		mtd -f write /tmp/upgflag ${UPG_DEV_CHAR}
 		echo "Boot form A version"
 	else
 		echo "dual-firmware startup error"

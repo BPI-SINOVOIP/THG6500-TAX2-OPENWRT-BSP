@@ -80,7 +80,7 @@ ubilayout() {
 		ubivol $vol_id rootfs "$2" "$autoresize" "$rootsize"
 
 		vol_id=$(( $vol_id + 1 ))
-		[ "$rootfs_type" = "ubifs" ] || ubivol $vol_id rootfs_data "" 1
+		# [ "$rootfs_type" = "ubifs" ] || ubivol $vol_id rootfs_data "" 1
 	fi
 }
 

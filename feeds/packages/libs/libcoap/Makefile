@@ -8,12 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libcoap
-PKG_VERSION:=e05af0d
+PKG_VERSION:=4.3.0
 PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/obgm/libcoap/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=2efaae6592ac15aa9bb417875bec67418d8ee83cc8546cb14fe55a6c7c337d9c
+PKG_HASH:=1a195adacd6188d3b71c476e7b21706fef7f3663ab1fb138652e8da49a9ec556
 
 PKG_MAINTAINER:=Anton Glukhov <anton.a.glukhov@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later BSD-2-Clause
@@ -84,13 +84,13 @@ endef
 
 define Package/coap-client/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-client* $(1)/usr/bin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-client $(1)/usr/bin/
 endef
 
 define Package/coap-server/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-server* $(1)/usr/bin/
-	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-rd* $(1)/usr/bin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-server $(1)/usr/bin/
+	$(CP) $(PKG_INSTALL_DIR)/usr/bin/coap-rd $(1)/usr/bin/
 endef
 
 $(eval $(call BuildPackage,libcoap))

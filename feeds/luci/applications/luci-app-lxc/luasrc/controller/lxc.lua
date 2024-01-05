@@ -55,10 +55,11 @@ end
 
 function lxc_get_downloadable()
 	local target = lxc_get_arch_target(url)
+	local ssl_status = lxc_get_ssl_status()
 	local templates = {}
 
-	local f = io.popen('sh /usr/share/lxc/templates/lxc-download --list --server %s 2>/dev/null'
-		%{ url }, 'r')
+	local f = io.popen('sh /usr/share/lxc/templates/lxc-download --list %s --server %s 2>/dev/null'
+		%{ ssl_status, url }, 'r')
 	local line
 	for line in f:lines() do
 		local dist, version, dist_target = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+default%s+%S+$")
@@ -79,9 +80,10 @@ function lxc_create(lxc_name, lxc_template)
 		return
 	end
 
+	local ssl_status = lxc_get_ssl_status()
 	local lxc_dist, lxc_release = lxc_template:match("^(.+):(.+)$")
-	luci.sys.call('/usr/bin/lxc-create --quiet --name %s --bdev best --template download -- --dist %s --release %s --arch %s --server %s'
-		%{ lxc_name, lxc_dist, lxc_release, lxc_get_arch_target(url), url })
+	luci.sys.call('/usr/bin/lxc-create --quiet --name %s --bdev best --template download -- --dist %s --release %s --arch %s --server %s %s'
+		%{ lxc_name, lxc_dist, lxc_release, lxc_get_arch_target(url), url, ssl_status })
 
 	while (nx.fs.access(path .. lxc_name .. "/partial")) do
 		nx.nanosleep(1)
@@ -163,7 +165,7 @@ function lxc_get_arch_target(url)
 		local target_map = {
 			armv5  = "armel",
 			armv6  = "armel",
-			armv7  = "armel",
+			armv7  = "armhf",
 			armv8  = "arm64",
 			aarch64  = "arm64",
 			i686   = "i386",
@@ -177,4 +179,14 @@ function lxc_get_arch_target(url)
 		end
 	end
 	return target
+end
+
+function lxc_get_ssl_status()
+	local ssl_enabled = uci:get("lxc", "lxc", "ssl_enabled")
+	local ssl_status = "--no-validate"
+
+	if ssl_enabled and ssl_enabled == "1" then
+		ssl_status = ""
+	end
+	return ssl_status
 end

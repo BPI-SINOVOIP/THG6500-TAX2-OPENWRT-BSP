@@ -1,0 +1,15 @@
+#!/bin/sh
+
+
+
+do_sta()
+{
+    logger -t hostapd_nft_qos -p notice "ACTION=$ACTION" "MAC=$MAC"
+    eval "/etc/init.d/nft-qos start 2>/dev/null"
+}
+
+case "$ACTION" in
+    "sta")
+        do_sta $MAC $STATUS $SSID $IFNAME
+    ;;
+esac

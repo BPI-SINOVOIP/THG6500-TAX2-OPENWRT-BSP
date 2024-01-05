@@ -137,6 +137,7 @@ define Build/append-ubi
 		$(if $(VID_HDR_OFFSET),-O $(VID_HDR_OFFSET)) \
 		$(UBINIZE_OPTS)
 	cat $@.tmp >> $@
+	cp $@.tmp $(IMAGE_ROOTFS).tmp
 	rm $@.tmp
 endef
 

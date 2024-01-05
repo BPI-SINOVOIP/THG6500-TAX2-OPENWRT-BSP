@@ -1,0 +1,21 @@
+[ ! -e /etc/config/firewall ] && exit 0
+
+. /lib/functions/system.sh
+
+
+set_device_config()
+{
+    device=$(board_name)
+
+    uci add_list firewall.@zone[1].network='wwan'
+
+    case $device in
+        *)
+            ;;
+    esac
+}
+
+
+set_device_config
+
+exit 0

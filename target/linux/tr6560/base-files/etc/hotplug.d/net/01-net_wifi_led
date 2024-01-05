@@ -55,12 +55,12 @@ wifi_iface_cb() {
 
 main()
 {
-    g_2g_ap_num=`uci -c /var/state/ -q get wifi.radio0.ap_num`
+    g_2g_ap_num=`uci -P /var/state/ get wifi.radio0.ap_num`
     if [ -z "$g_2g_ap_num" ]; then
         g_2g_ap_num=0
     fi
 
-    g_5g_ap_num=`uci -c /var/state/ -q get wifi.radio1.ap_num`
+    g_5g_ap_num=`uci -P /var/state/ get wifi.radio1.ap_num`
     if [ -z "$g_5g_ap_num" ]; then
         g_5g_ap_num=0
     fi
@@ -70,11 +70,11 @@ main()
 
     if [ $g_ap_num_change = 'true' ] ; then
         logger -t net_wifi_led -p notice "g_2g_ap_num=${g_2g_ap_num}, g_5g_ap_num=${g_5g_ap_num}"
-        uci -q -c /var/state revert wifi.radio0.ap_num
-        uci -q -c /var/state revert wifi.radio1.ap_num
-        uci -c /var/state/ set wifi.radio0.ap_num="${g_2g_ap_num}"
-        uci -c /var/state/ set wifi.radio1.ap_num="${g_5g_ap_num}"
-        uci -c /var/state/ commit wifi
+        uci -P /var/state revert wifi.radio0.ap_num
+        uci -P /var/state revert wifi.radio1.ap_num
+        uci -P /var/state/ set wifi.radio0.ap_num="${g_2g_ap_num}"
+        uci -P /var/state/ set wifi.radio1.ap_num="${g_5g_ap_num}"
+        uci -P /var/state/ commit wifi
 
         if [ ${g_2g_ap_num} -eq 0 ]; then
             # logger -t net_wifi_led -p notice "clear 2g"

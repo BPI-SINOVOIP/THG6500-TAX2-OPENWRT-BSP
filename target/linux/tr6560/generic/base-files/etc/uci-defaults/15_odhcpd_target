@@ -1,0 +1,40 @@
+#!/bin/sh
+[ -e '/etc/config/dhcp' ] || exit 0
+
+. /lib/functions/system.sh
+. /lib/functions/working-mode.sh
+
+
+
+set_dhcp()
+{
+    local device=$1
+    local curmode=`uci get network.globals.curmode` # bridge/router/repeater
+
+    # device independent config
+    working_mode_set_dhcp $curmode
+    uci batch << 'EOF'
+        set dhcp.lan.dhcpv6='disabled'
+        delete dhcp.lan.ra_flags
+        add_list dhcp.lan.ra_flags='none'
+EOF
+
+
+
+    # device dependent config
+    case $device in
+        *)
+            ;;
+    esac
+}
+
+
+main()
+{
+    local device=$(board_name)
+
+    `set_dhcp "$device"`
+}
+
+main
+

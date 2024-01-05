@@ -1327,7 +1327,7 @@ config BUSYBOX_DEFAULT_FEATURE_ADDUSER_TO_GROUP
 	default n
 config BUSYBOX_DEFAULT_ADDUSER
 	bool
-	default y
+	default n
 config BUSYBOX_DEFAULT_FEATURE_CHECK_NAMES
 	bool
 	default n
@@ -1342,7 +1342,7 @@ config BUSYBOX_DEFAULT_LAST_SYSTEM_ID
 	default 0
 config BUSYBOX_DEFAULT_CHPASSWD
 	bool
-	default y
+	default n
 config BUSYBOX_DEFAULT_FEATURE_DEFAULT_PASSWD_ALGO
 	string
 	default "md5"
@@ -1354,7 +1354,7 @@ config BUSYBOX_DEFAULT_MKPASSWD
 	default n
 config BUSYBOX_DEFAULT_DELUSER
 	bool
-	default y
+	default n
 config BUSYBOX_DEFAULT_DELGROUP
 	bool
 	default n

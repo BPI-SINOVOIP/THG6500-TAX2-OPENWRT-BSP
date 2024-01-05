@@ -1,0 +1,144 @@
+diff -uprN a/src/eap_server/eap_server_wsc.c b/src/eap_server/eap_server_wsc.c
+--- a/src/eap_server/eap_server_wsc.c	2023-08-23 13:52:10.341027503 +0800
++++ b/src/eap_server/eap_server_wsc.c	2023-10-25 17:22:31.102466122 +0800
+@@ -15,6 +15,7 @@
+ #include "p2p/p2p.h"
+ #include "wps/wps.h"
+ #ifdef CONFIG_CONNECTIVITY_PATCH
++#include "wps/wps_i.h"
+ #include "connectivity_patch/connectivity_patch.h"
+ #endif
+ 
+@@ -360,6 +361,9 @@ static void eap_wsc_process(struct eap_s
+ 	u16 message_length = 0;
+ 	enum wps_process_res res;
+ 	struct wpabuf tmpbuf;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char wps_buf[256];
++#endif
+ 
+ 	eloop_cancel_timeout(eap_wsc_ext_reg_timeout, sm, data);
+ 	if (data->ext_reg_timeout) {
+@@ -448,7 +452,8 @@ static void eap_wsc_process(struct eap_s
+ 			   "successfully - report EAP failure");
+ 		eap_wsc_state(data, FAIL);
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+-		system("wps_led.sh on");
++		snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" ok", MAC2STR(data->wps->wps->dev.mac_addr));
++		system(wps_buf);
+ #endif
+ 		break;
+ 	case WPS_CONTINUE:
+@@ -458,7 +463,8 @@ static void eap_wsc_process(struct eap_s
+ 		wpa_printf(MSG_DEBUG, "EAP-WSC: WPS processing failed");
+ 		eap_wsc_state(data, FAIL);
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+-		system("wps_led.sh off");
++		snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(data->wps->wps->dev.mac_addr));
++		system(wps_buf);
+ #endif
+ 		break;
+ 	case WPS_PENDING:
+diff -uprN a/src/wps/wps_registrar.c b/src/wps/wps_registrar.c
+--- a/src/wps/wps_registrar.c	2023-08-23 13:52:10.337027504 +0800
++++ b/src/wps/wps_registrar.c	2023-10-25 17:24:40.015283988 +0800
+@@ -1031,7 +1031,9 @@ static void wps_registrar_pbc_timeout(vo
+ 	wps_registrar_stop_pbc(reg);
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+ 	wps_procedure_state = WPS_FAILURE;
+-	system("wps_led.sh off");
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(reg->wps->dev.mac_addr));
++	system(wps_buf);
+ #endif
+ }
+ 
+@@ -1073,7 +1075,9 @@ int wps_registrar_button_pushed(struct w
+ 	wps_registrar_selected_registrar_changed(reg, 0);
+ 
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+-	system("wps_led.sh blink");
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" start", MAC2STR(reg->wps->dev.mac_addr));
++	system(wps_buf);
+ #endif
+ 	wps_pbc_active_event(reg->wps);
+ 	eloop_cancel_timeout(wps_registrar_set_selected_timeout, reg, NULL);
+@@ -3487,7 +3491,9 @@ static void wps_registrar_set_selected_t
+ 
+ #ifdef CONFIG_CONNECTIVITY_PATCH
+ 	wps_procedure_state = WPS_FAILURE;
+-	system("wps_led.sh off");
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(reg->wps->dev.mac_addr));
++	system(wps_buf);
+ #endif
+ }
+ 
+diff -uprN a/wpa_supplicant/wps_supplicant.c b/wpa_supplicant/wps_supplicant.c
+--- a/wpa_supplicant/wps_supplicant.c	2023-10-25 16:01:48.318511670 +0800
++++ b/wpa_supplicant/wps_supplicant.c	2023-10-25 17:25:20.404939070 +0800
+@@ -109,7 +109,14 @@ int wpas_wps_eapol_cb(struct wpa_supplic
+ 	wpas_wps_clear_ap_info(wpa_s);
+ 	eloop_cancel_timeout(wpas_wps_timeout, wpa_s, NULL);
+ 	if (wpa_s->key_mgmt == WPA_KEY_MGMT_WPS && !wpa_s->wps_success)
++	{
++#ifdef CONFIG_CONNECTIVITY_PATCH
++		char wps_buf[256];
++		snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(wpa_s->own_addr));
++		system(wps_buf);
++#endif
+ 		wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_FAIL);
++	}
+ 
+ 	if (wpa_s->key_mgmt == WPA_KEY_MGMT_WPS && wpa_s->current_ssid &&
+ 	    !(wpa_s->current_ssid->key_mgmt & WPA_KEY_MGMT_WPS)) {
+@@ -642,6 +649,11 @@ static void wpas_wps_clear_timeout(void
+ static void wpa_supplicant_wps_event_fail(struct wpa_supplicant *wpa_s,
+ 					  struct wps_event_fail *fail)
+ {
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(wpa_s->own_addr));
++	system(wps_buf);
++#endif
+ 	if (fail->error_indication > 0 &&
+ 	    fail->error_indication < NUM_WPS_EI_VALUES) {
+ 		wpa_msg(wpa_s, MSG_INFO,
+@@ -723,6 +735,11 @@ int wpas_wps_reenable_networks_pending(s
+ 
+ static void wpa_supplicant_wps_event_success(struct wpa_supplicant *wpa_s)
+ {
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" ok", MAC2STR(wpa_s->own_addr));
++	system(wps_buf);
++#endif
+ 	wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_SUCCESS);
+ 	wpa_s->wps_success = 1;
+ 	wpas_notify_wps_event_success(wpa_s);
+@@ -995,6 +1012,12 @@ static void wpas_wps_timeout(void *eloop
+ 	struct wpa_supplicant *wpa_s = eloop_ctx;
+ 	union wps_event_data data;
+ 
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" fail", MAC2STR(wpa_s->own_addr));
++	system(wps_buf);
++#endif
++
+ 	wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_TIMEOUT "Requested operation timed "
+ 		"out");
+ 	os_memset(&data, 0, sizeof(data));
+@@ -1209,6 +1232,11 @@ int wpas_wps_start_pbc(struct wpa_suppli
+ 		ssid->eap.fragment_size = wpa_s->wps_fragment_size;
+ 	if (multi_ap_backhaul_sta)
+ 		ssid->multi_ap_backhaul_sta = 1;
++#ifdef CONFIG_CONNECTIVITY_PATCH
++	char wps_buf[256];
++	snprintf(wps_buf, sizeof(wps_buf), "wps.sh "MACSTR" start", MAC2STR(wpa_s->own_addr));
++	system(wps_buf);
++#endif
+ 	wpa_supplicant_wps_event(wpa_s, WPS_EV_PBC_ACTIVE, NULL);
+ 	eloop_register_timeout(WPS_PBC_WALK_TIME, 0, wpas_wps_timeout,
+ 			       wpa_s, NULL);

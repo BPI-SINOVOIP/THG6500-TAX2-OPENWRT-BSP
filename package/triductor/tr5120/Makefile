@@ -46,16 +46,21 @@ endef
 define Build/Compile
 endef
 
-autoload_mods_$(SUBTARGET) := hal \
+autoload_mods_$(SUBTARGET) := oal \
+                              hal \
                               alg \
                               dmac \
                               frw \
                               hmac \
-                              oal \
                               oam \
                               plat \
                               sdt \
                               wal
+
+ifeq ($(BUILD_VARIANT),dbac)
+	MODPARAMS.oal := g_dbac_enable=1
+	MODPARAMS.hal := g_l_rf_channel_num=2 g_l_rf_single_tran=0 g_l_rf_fem_switch=5
+endif
 
 define Package/tr5120/install
 	$(INSTALL_DIR) $(1)/$(MODULES_SUBDIR)
@@ -68,15 +73,10 @@ define Package/tr5120/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bin/* $(1)/usr/sbin/
 endef
 
-
 define Package/tr5120-basic/install
 $(call Package/tr5120/install,$(1))
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/config/hazel.ini $(1)/etc/wifi/
 endef
-
-ifeq ($(BUILD_VARIANT),dbac)
-  MODPARAMS.hal := g_l_rf_channel_num=2 g_l_rf_single_tran=0 g_l_rf_fem_switch=5
-endif
 
 define Package/tr5120-dbac/install
 $(call Package/tr5120/install,$(1))

@@ -1,5 +1,4 @@
 #!/bin/sh
-. /opt/prplmesh/scripts/non-mesh.sh
 
 wps_catch_credentials() {
 	local iface ifaces ifc ifname ssid encryption key radio radios
@@ -51,24 +50,44 @@ if [ "$ACTION" = "released" ] && [ "$BUTTON" = "wps" ]; then
                 	wps_done=0
                 	ubusobjs="$( ubus -S list hostapd.* )"
                 	for ubusobj in $ubusobjs; do
+				ifname="$(echo $ubusobj | cut -d'.' -f2 )"
                         	ubus -S call $ubusobj wps_start && wps_done=1
+				iwpriv ${ifname} ssidhide 0
                 	done
                 	[ $wps_done = 0 ] || return 0
 		else
-			set_normal_gw
+			/bin/scripts/modeSet.sh router
 		fi
 	elif [ -n "$management_mode" -a "$management_mode" = "Multi-AP-Agent" ]; then
 		if [ "$SEEN" -lt 3 ] ; then
+			ignore_sta_wps=0
+			mesh_state=`uci -q get prplmesh.config.onboarded`
+			if [ "$mesh_state" = "1" ] ; then
+				ignore_sta_wps=1		
+			fi
+			logger -t wps_button -p notice "mesh_state=$mesh_state" "ignore_sta_wps=$ignore_sta_wps"
 			ubusobjs="$( ubus -S list wpa_supplicant.* )"
         		for ubusobj in $ubusobjs; do
                 		ifname="$(echo $ubusobj | cut -d'.' -f2 )"
                 		multi_ap=""
-                		if [ -e "/var/run/wpa_supplicant-${ifname}.conf.is_multiap" ]; then
+                		if [ -e "/var/run/wpa_supplicant-${ifname}.conf.is_multiap" -a "$ignore_sta_wps" = "0" ]; then
                         		wpa_cli -i ${ifname} WPS_PBC multi_ap=1
+					logger -t wps_button -p notice "ubusobjs=$ubusobjs" "start wp"
                 		fi
         		done
+			wps_done=0
+                        ubusobjs="$( ubus -S list hostapd.* )"
+                        for ubusobj in $ubusobjs; do
+				if [ "$ignore_sta_wps" = "1" ]; then
+					ifname="$(echo $ubusobj | cut -d'.' -f2 )"
+                                	ubus -S call $ubusobj wps_start && wps_done=1
+					logger -t wps_button -p notice "ubusobjs=$ubusobjs" "start wp"
+					iwpriv ${ifname} ssidhide 0
+				fi
+                        done
+                        [ $wps_done = 0 ] || return 0
 		else
-			set_normal_gw
+			/bin/scripts/modeSet.sh router
 		fi
 	else
 	if [ "$SEEN" -lt 3 ] ; then

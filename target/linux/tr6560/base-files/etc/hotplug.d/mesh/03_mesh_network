@@ -5,10 +5,11 @@
 
 
 case "$ACTION" in
-    "linkdown")
+    "linkrecover")
         management_mode=`uci -q get prplmesh.config.management_mode`
         [ "$management_mode" = "Multi-AP-Agent" ] || exit 0 
 
         /etc/init.d/network restart
+	/etc/init.d/prplmesh restart
         ;;
 esac

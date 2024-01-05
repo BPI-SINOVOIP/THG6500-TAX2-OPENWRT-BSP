@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2018 rosysong@rosinson.com
+# Copyright © 2023 Triductor Technology(Suzhou) Inc. - http://www.triductor.com/
 #
 
 # for uci_validate_section()
@@ -53,6 +53,68 @@ qosdef_append_rule_ip_limit() { #  <operator> <unit> <rate> <macaddr> <ip_ver> <
 }
 
 # qosdef_append_rule_{MATCH}_{STATEMENT}
+qosdef_append_rule_qos_priority() { # <smacaddr> <dmacaddr> <sipaddr> <dipaddr> <sport> <dport> <protocol> <qospriority> <dscppriority>
+	local smacaddr=$1
+	local dmacaddr=$2
+	local sipaddr=$3
+	local dipaddr=$4
+	local sport=$5
+	local dport=$6
+	local proto=$7
+	local qosprio=$8
+	local dscpprio=$9
+	local NFT_QOS_TMP_TEXT="oifname br-lan"
+	local NFT_QOS_TMP_TEXT0=""
+
+	[ -n "$smacaddr" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ether saddr $smacaddr"
+	}
+	[ -n "$dmacaddr" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ether daddr $dmacaddr"
+	}
+	[ -n "$sipaddr" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ip saddr $sipaddr"
+	} 
+	[ -n "$dipaddr" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ip daddr {$dipaddr}"
+	} 
+	[ -n "$proto" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ip protocol $proto"
+	}
+	[ -n "$dscpprio" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT ip dscp set $dscpprio"
+	}
+	[ -n "$qosprio" ] && {
+		NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT meta mark set 0x111100$qosprio$qosprio"
+	}
+	if [ -n "$proto" ]; then
+		[ -n "$sport" ] && {
+			if [[ "$proto" == "tcp"  ||  "$proto" == "udp" ]]; then
+				NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT $proto sport $sport"		
+			fi
+		}
+		[ -n "$dport" ] && {
+			if [[ "$proto" == "tcp"  ||  "$proto" == "udp" ]]; then
+				NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT $proto sport $dport"		
+			fi
+		}
+	elif [ -n "$sport" ] || [ -n "$dport" ]; then
+		 NFT_QOS_TMP_TEXT0="$NFT_QOS_TMP_TEXT"
+		[ -n "$sport" ] && {
+			NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT tcp sport $sport"
+			NFT_QOS_TMP_TEXT0="$NFT_QOS_TMP_TEXT0 udp sport $sport"
+		}
+		[ -n "$dport" ] && {
+			NFT_QOS_TMP_TEXT="$NFT_QOS_TMP_TEXT tcp dport $dport"
+			NFT_QOS_TMP_TEXT0="$NFT_QOS_TMP_TEXT0 udp dport $dport"
+		}
+	fi
+	qosdef_appendx "\t\t$NFT_QOS_TMP_TEXT\n"
+	[ -n "$NFT_QOS_TMP_TEXT0" ] && {
+		qosdef_appendx "\t\t$NFT_QOS_TMP_TEXT0\n"
+	}
+}
+# qosdef_append_rule_{MATCH}_{STATEMENT}
 qosdef_append_rule_mac_limit() { # <macaddr> <operator> <unit> <rate>
 	local macaddr=$1
 	local operator=$2
@@ -96,7 +158,7 @@ qosdef_remove_table() { # <family> <table>
 
 qosdef_init_header() { # add header for nft script
 	qosdef_appendx "#!/usr/sbin/nft -f\n"
-	qosdef_appendx "# Copyright (C) 2018 rosysong@rosinson.com\n"
+	qosdef_appendx "# Copyright @ 2023 Triductor Technology(Suzhou) Inc. - http://www.triductor.com/\n"
 	qosdef_appendx "#\n\n"
 }
 
